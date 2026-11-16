@@ -74,13 +74,13 @@ Every key is read at start-up. A key under `quarkpress.admin` that is not listed
 
 | Key | Default | Meaning |
 |---|---|---|
-| `quarkpress.admin.path` | `/wp-admin/` | The path of the admin screens below each site's path, with a leading and a trailing slash and no empty or dot segment: the lists are at `<site path><path>edit.php`, the editor at `<site path><path>post.php`. It may have more than one segment (`/a/b/`); the pages then reach WordPress's files through one more `../`. WordPress's files stay under `wp-includes/` and `wp-admin/{css,js,images}/` whatever this path is. Another value fails the start. |
+| `quarkpress.admin.path` | `/wp-admin/` | The path of the admin screens below each site's path, with a leading and a trailing slash and no empty or dot segment: the lists are at `<site path><path>edit.php`, the editor at `<site path><path>post.php`. It may have more than one segment (`/a/b/`); the pages then reach WordPress's files through one more `../`. WordPress's files stay under `wp-includes/` and `wp-admin/{css,js,images}/` whatever this path is. The path without its trailing slash (`/wp-admin`) is redirected to it (301). The editor's dashboard link and its link to a newer autosave's revision screen lead to the admin folder of the site being edited, whatever `quarkpress.rest-wp-v2.editor.dashboard-url` says. Another value fails the start. |
 | `quarkpress.admin.oidc.authority` | the application's `quarkus.oidc.auth-server-url` | The OpenID Connect provider (issuer URL) the shell signs in with. With neither set, the application does not start. |
 | `quarkpress.admin.oidc.client-id` | `quarkpress-admin` | The public client the shell signs in as. |
 | `quarkpress.admin.oidc.scope` | `openid profile email` | The scopes the shell asks for. |
 | `quarkpress.admin.lock-refresh-interval` | `60s` | How often the editor tells the server that its user still holds the post's lock, while the tab is visible (D1). The shell counts whole seconds; under one second the application does not start. |
 
-The editor's other settings (the autosave intervals, the dashboard link, the theme features) belong to the REST module:
+The editor's other settings (the autosave intervals, the theme features) belong to the REST module:
 `quarkpress.rest-wp-v2.editor.*` and `quarkpress.rest-wp-v2.theme.*`, described in its README. Its
 `quarkpress.rest-wp-v2.path` (`/wp-json`) is the REST root the shell uses.
 
@@ -91,6 +91,7 @@ anything else goes on to the application's other routes.
 
 | Path below the site | Answer |
 |---|---|
+| `wp-admin` | A permanent redirect (301) to `wp-admin/`, the query kept. |
 | `wp-admin/`, `wp-admin/index.php` | The shell page: the posts list. |
 | `wp-admin/edit.php` | The shell page: the posts list; `?post_type=page` the pages list; `post_status=`, `paged=` and the trash notice's `trashed=`, `untrashed=`, `deleted=`, `ids=` as in WordPress. |
 | `wp-admin/upload.php` | The shell page: the Media Library list. |
@@ -176,9 +177,13 @@ grid and its row actions. The shell has no menu beyond "All Posts", "All Pages" 
 
 ## Security notes
 
-- Tokens stay in the tab: the user and the sign-in state live in memory and `sessionStorage`, never in `localStorage` or
-  a cookie; a tab's session ends with the tab. The provider's refresh token (the only renewal the shell uses) renews the
-  access token in the background (D10).
+- Tokens stay in the tab and the windows it opens: the user and the sign-in state live in memory and `sessionStorage`,
+  never in `localStorage` or a cookie; a tab's session ends with the tab. A window the tab opens starts with a copy of
+  its `sessionStorage`, as browsers do for `window.open`: the editor's preview window, which renders the site's front
+  end, holds the signed-in user's access and refresh tokens too (checked in Chromium by the preview flow), readable by
+  any script of the site's origin running there. The provider's refresh token (the only renewal the shell uses) renews
+  the access token a minute before it expires (D10); that renewal and the one after a refused request share one token
+  request, so the refresh token is never sent twice at once and Keycloak's "Revoke Refresh Token" can stay on.
 - REST calls carry `Authorization: Bearer …` only when their URL is below the site's own REST root; no other request
   gets the token. Without a token, nothing is sent.
 - There is no nonce and no login cookie. The only cookie is the preview session (`quarkpress_preview`, `HttpOnly`,
@@ -186,8 +191,9 @@ grid and its row actions. The shell has no menu beyond "All Posts", "All Pages" 
   credential.
 - The sign-in comes back only to a page of the same admin folder, and the shell only ever rewrites the address bar to a
   file of that folder.
-- The post lock is released on leaving the page by a request without credentials that carries the lock's one-time
-  release token.
+- The post lock is released on leaving the page by a request without an access token that carries the lock's one-time
+  release token (the browser's beacon still sends the site's cookies, the preview cookie among them; no REST route
+  reads it).
 - The pages may be framed only by their own site; the shell's and WordPress's files are served only when a list names
   them.
 
