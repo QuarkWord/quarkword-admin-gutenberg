@@ -69,12 +69,14 @@ public final class PageRenderer {
     }
 
     /**
-     * The shell page. It names no WordPress file, so the prefix is not used; it is taken for symmetry with
+     * The shell page, with WordPress's view-transitions opt-in as the editor page has it. It names no WordPress file,
+     * so the prefix is not used; it is taken for symmetry with
      * {@link #editorPage(String)}.
      */
     public String shellPage(String relativePrefix) {
         StringBuilder html = new StringBuilder(1024);
         head(html);
+        viewTransitions(html);
         html.append("</head>\n");
         html.append("<body class=\"qp-admin\">\n");
         container(html, false);
@@ -97,16 +99,7 @@ public final class PageRenderer {
                         .append("' media='all' />\n");
             }
         }
-        viewTransitionsCss.ifPresent(css -> {
-            String text = css.strip();
-            if (text.contains("</")) {
-                throw new IllegalStateException("QuarkPress admin: " + VIEW_TRANSITIONS_FILE
-                        + " would close the style element it is printed in");
-            }
-            html.append("<style id=\"wp-view-transitions-admin-inline-css\">\n")
-                    .append(text)
-                    .append("\n/*# sourceURL=wp-view-transitions-admin-inline-css */\n</style>\n");
-        });
+        viewTransitions(html);
         html.append("</head>\n");
         html.append("<body class=\"").append(EDITOR_BODY_CLASS).append("\">\n");
         container(html, true);
@@ -132,6 +125,23 @@ public final class PageRenderer {
         html.append("<script type=\"module\" src=\"quarkpress-admin/editor.js\"></script>\n");
         html.append("</body>\n</html>\n");
         return html.toString();
+    }
+
+    /**
+     * WordPress's view-transitions opt-in, which it prints on every admin screen: both pages carry it, so a navigation
+     * from one to the other keeps its cross-document transition.
+     */
+    private void viewTransitions(StringBuilder html) {
+        viewTransitionsCss.ifPresent(css -> {
+            String text = css.strip();
+            if (text.contains("</")) {
+                throw new IllegalStateException("QuarkPress admin: " + VIEW_TRANSITIONS_FILE
+                        + " would close the style element it is printed in");
+            }
+            html.append("<style id=\"wp-view-transitions-admin-inline-css\">\n")
+                    .append(text)
+                    .append("\n/*# sourceURL=wp-view-transitions-admin-inline-css */\n</style>\n");
+        });
     }
 
     private static void head(StringBuilder html) {

@@ -42,4 +42,26 @@ class PageRendererTest {
                 .contains("<style id=\"wp-view-transitions-admin-inline-css\">\n@media{a{b:c}}\n"
                         + "/*# sourceURL=wp-view-transitions-admin-inline-css */\n</style>\n</head>");
     }
+
+    @Test
+    void theShellPagePrintsTheSameViewTransitionsStylesheet() {
+        PageRenderer renderer = new PageRenderer(AssetRegistry.load(), "/wp-admin/", Optional.of("@media{a{b:c}}\n"));
+
+        // every admin page opts in, as WordPress's admin screens do, so a navigation between two of them keeps its
+        // transition
+        assertThat(renderer.shellPage("../"))
+                .contains("<link rel=\"stylesheet\" href=\"quarkpress-admin/shell.css\">\n"
+                        + "<style id=\"wp-view-transitions-admin-inline-css\">\n@media{a{b:c}}\n"
+                        + "/*# sourceURL=wp-view-transitions-admin-inline-css */\n</style>\n</head>");
+    }
+
+    @Test
+    void anUnsafeViewTransitionsStylesheetFailsTheShellPage() {
+        PageRenderer renderer = new PageRenderer(
+                AssetRegistry.load(), "/wp-admin/", Optional.of("@media{}</style><script>alert(1)</script>"));
+
+        assertThatThrownBy(() -> renderer.shellPage("../"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("view-transitions.min.css");
+    }
 }

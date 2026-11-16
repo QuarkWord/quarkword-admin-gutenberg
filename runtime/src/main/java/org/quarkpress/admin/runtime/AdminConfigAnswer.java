@@ -7,6 +7,7 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.quarkpress.restwp.runtime.RestWpConfig;
@@ -16,7 +17,7 @@ import org.quarkpress.restwp.runtime.RestWpConfig;
  * path, the sign-in client's settings, how often the editor refreshes its post lock (in seconds) and the WordPress
  * release whose editor the jar carries. The same answer for every site and user: the shell computes its site's URLs
  * from its own address. The sign-in server is {@code quarkpress.admin.oidc.authority}, else the application's own
- * OIDC server; without either the application does not start.
+ * OIDC server; without either the application does not start, nor with a lock refresh interval under one second.
  */
 @ApplicationScoped
 public class AdminConfigAnswer {
@@ -50,6 +51,19 @@ public class AdminConfigAnswer {
         return answer;
     }
 
+    /**
+     * The post lock refresh interval in the whole seconds the shell counts; an interval under one second, which would
+     * reach the shell as none, stops the start.
+     */
+    static long refreshSeconds(Duration interval) {
+        if (interval.compareTo(Duration.ofSeconds(1)) < 0) {
+            throw new IllegalStateException(
+                    "QuarkPress admin: quarkpress.admin.lock-refresh-interval must be at least one second, not "
+                            + interval);
+        }
+        return interval.toSeconds();
+    }
+
     private String build() {
         String authority = config.oidc()
                 .authority()
@@ -64,7 +78,7 @@ public class AdminConfigAnswer {
         oidc.put("authority", authority);
         oidc.put("clientId", config.oidc().clientId());
         oidc.put("scope", config.oidc().scope());
-        root.put("lockRefreshInterval", config.lockRefreshInterval().toSeconds());
+        root.put("lockRefreshInterval", refreshSeconds(config.lockRefreshInterval()));
         root.put("wordpress", registry.version());
         try {
             return mapper.writeValueAsString(root);
