@@ -5,8 +5,10 @@ import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourcePatternsBuildItem;
 import org.quarkpress.admin.runtime.AdminConfig;
+import org.quarkpress.admin.runtime.AdminPages;
 import org.quarkpress.admin.runtime.AdminRoute;
 import org.quarkpress.admin.runtime.AssetFiles;
+import org.quarkpress.admin.runtime.AssetRegistry;
 import org.quarkpress.core.deployment.spi.QuarkPressConfigKeysBuildItem;
 
 class AdminGutenbergProcessor {
@@ -24,11 +26,14 @@ class AdminGutenbergProcessor {
         return QuarkPressConfigKeysBuildItem.of("admin", "quarkpress.admin", AdminConfig.class);
     }
 
-    /** The route that serves the admin screens' files, and the files it finds them through. */
+    /**
+     * The route that serves the admin screens' files and pages, the files it finds them through, the pages and
+     * WordPress's handle registry they are rendered from.
+     */
     @BuildStep
     AdditionalBeanBuildItem beans() {
         return AdditionalBeanBuildItem.builder()
-                .addBeanClasses(AdminRoute.class, AssetFiles.class)
+                .addBeanClasses(AdminRoute.class, AssetFiles.class, AdminPages.class, AssetRegistry.class)
                 .setUnremovable()
                 .build();
     }
