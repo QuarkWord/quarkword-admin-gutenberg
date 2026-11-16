@@ -43,7 +43,9 @@ public class AssetFiles {
             Map.entry("woff2", "font/woff2"),
             Map.entry("ttf", "font/ttf"),
             Map.entry("eot", "application/vnd.ms-fontobject"),
-            Map.entry("txt", "text/plain; charset=utf-8"));
+            Map.entry("txt", "text/plain; charset=utf-8"),
+            // the vendored client's licence, oidc-client-ts.LICENSE: shown by a browser, not downloaded
+            Map.entry("license", "text/plain; charset=utf-8"));
 
     private volatile Lists lists;
 

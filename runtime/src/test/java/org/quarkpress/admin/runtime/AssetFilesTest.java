@@ -161,7 +161,7 @@ class AssetFilesTest {
         assertThat(AssetFiles.contentType("license.txt")).isEqualTo("text/plain; charset=utf-8");
         assertThat(AssetFiles.contentType("x")).isEqualTo("application/octet-stream");
         assertThat(AssetFiles.contentType("a.d/x")).isEqualTo("application/octet-stream");
-        assertThat(AssetFiles.contentType("vendor/oidc-client-ts.LICENSE")).isEqualTo("application/octet-stream");
+        assertThat(AssetFiles.contentType("vendor/oidc-client-ts.LICENSE")).isEqualTo("text/plain; charset=utf-8");
     }
 
     /** The manifest's targets, read here independently of {@link AssetFiles}. */
