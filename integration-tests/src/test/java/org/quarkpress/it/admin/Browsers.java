@@ -40,6 +40,17 @@ final class Browsers implements AutoCloseable {
 
     private final Map<Page, List<String>> requests = new ConcurrentHashMap<>();
 
+    private final Map<Page, List<String>> console = new ConcurrentHashMap<>();
+
+    private final List<String> omitted = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * The REST routes the editor asks for that QuarkPress does not serve, so the editor route's preload leaves them
+     * out and the editor gets a 404 it tolerates: block templates, global styles and the editor's notes.
+     */
+    static final List<String> OMITTED_ROUTES =
+            List.of("/wp-json/wp/v2/templates", "/wp-json/wp/v2/global-styles", "/wp-json/wp/v2/comments?");
+
     private Browsers() {}
 
     /** Starts Playwright; Chromium starts with the first {@link #base(URL)}. */
@@ -101,10 +112,14 @@ final class Browsers implements AutoCloseable {
     private void watch(String user, Page page) {
         List<String> sent = Collections.synchronizedList(new ArrayList<>());
         requests.put(page, sent);
+        List<String> messages = Collections.synchronizedList(new ArrayList<>());
+        console.put(page, messages);
         page.onRequest(request -> sent.add(request.method() + " " + request.url()));
         page.onConsoleMessage(message -> {
+            messages.add(message.type() + ": " + message.text());
             if ("error".equals(message.type())) {
-                errors.add(user + " console: " + message.text() + " at " + message.location() + " on " + page.url());
+                String error = user + " console: " + message.text() + " at " + message.location() + " on " + page.url();
+                (omittedRoute(message.text(), message.location()) ? omitted : errors).add(error);
             }
         });
         page.onPageError(error -> errors.add(user + " page error: " + error + " on " + page.url()));
@@ -113,6 +128,26 @@ final class Browsers implements AutoCloseable {
     /** The requests the page sent so far, as {@code "<method> <url>"}, in order. */
     List<String> requests(Page page) {
         return List.copyOf(requests.getOrDefault(page, List.of()));
+    }
+
+    /** Whether a console error is the browser's report of a 404 from a route the editor route leaves out. */
+    static boolean omittedRoute(String text, String location) {
+        return text.contains("the server responded with a status of 404")
+                && OMITTED_ROUTES.stream().anyMatch(route -> location.contains(route));
+    }
+
+    /** The console messages the page logged so far, as {@code "<type>: <text>"}, in order. */
+    List<String> console(Page page) {
+        return List.copyOf(console.getOrDefault(page, List.of()));
+    }
+
+    /** The 404s of omitted routes reported since the last call, which forgets them (they are not errors of a flow). */
+    List<String> takeOmitted() {
+        synchronized (omitted) {
+            List<String> taken = List.copyOf(omitted);
+            omitted.clear();
+            return taken;
+        }
     }
 
     /** The errors collected since the last call, which forgets them. */
@@ -153,9 +188,13 @@ final class Browsers implements AutoCloseable {
 
     /**
      * Closes the editor's welcome guide, a modal that hides the rest of the editor from clicks, as a user would: with
-     * its Close button, or Escape when there is none; then waits for the overlay to go.
+     * its Close button, or Escape when there is none; then waits for the overlay to go. The user's preference decides
+     * whether it opens: while it says so, this waits for the guide.
      */
     static void closeWelcomeGuide(Page page) {
+        // the guide opens once the editor has read the user's preferences: wait for it while they ask for it
+        page.waitForFunction("() => !wp.data.select('core/preferences').get('core/edit-post', 'welcomeGuide')"
+                + " || !!document.querySelector('.components-modal__screen-overlay')");
         Locator overlay = page.locator(".components-modal__screen-overlay");
         if (overlay.count() > 0) {
             Locator close = overlay.first().getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Close"));

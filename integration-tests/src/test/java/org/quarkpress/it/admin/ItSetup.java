@@ -4,10 +4,12 @@ import static io.restassured.RestAssured.given;
 
 import io.quarkus.test.keycloak.client.KeycloakTestClient;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.restassured.specification.RequestSpecification;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -130,6 +132,16 @@ final class ItSetup {
                 .getLong("id");
     }
 
+    /** Sets the post's last-modified time of the main site to {@code at} (UTC, {@code 2026-10-18T10:00:00}), as alice. */
+    void backdate(long post, String at) {
+        as("alice")
+                .contentType(ContentType.JSON)
+                .body(Map.of("posts", List.of(Map.of("id", post, "at", at, "date", false))))
+                .put("/it/backdate")
+                .then()
+                .statusCode(200);
+    }
+
     /** Sets the post's edit lock to the user's, taken {@code age} seconds ago (as alice); answers the lock's value. */
     String lock(long post, String name, long age) {
         return as("alice")
@@ -145,12 +157,27 @@ final class ItSetup {
 
     /** Sets an option of the main site to a JSON value, as alice. */
     void option(String name, String json) {
+        optionOn("/", name, json);
+    }
+
+    /** Sets an option of the site at {@code sitePath} to a JSON value, as alice. */
+    void optionOn(String sitePath, String name, String json) {
         as("alice")
                 .contentType(ContentType.JSON)
                 .body(json)
-                .put("/it/options/" + name)
+                .put(sitePath + "it/options/" + name)
                 .then()
                 .statusCode(200);
+    }
+
+    /** The REST answer of {@code path} below the site's REST root (such as {@code wp/v2/posts/1}) as {@code asUser}. */
+    JsonPath rest(String asUser, String sitePath, String path) {
+        return as(asUser)
+                .get(sitePath + "wp-json/" + path)
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath();
     }
 
     /** Deletes the post for good, as alice. */

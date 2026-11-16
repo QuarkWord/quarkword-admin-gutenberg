@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.ForbiddenException;
@@ -15,6 +16,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +33,11 @@ import org.quarkpress.multisite.NewSite;
 import org.quarkpress.multisite.Sites;
 import org.quarkpress.persistence.Options;
 import org.quarkpress.persistence.SiteScope;
+import org.quarkpress.persistence.runtime.TenantIds;
 import org.quarkpress.posts.PostChanges;
 import org.quarkpress.posts.PostMeta;
 import org.quarkpress.posts.Posts;
+import org.quarkpress.posts.runtime.PostRepository;
 import org.quarkpress.revisions.AutosaveChanges;
 import org.quarkpress.revisions.AutosaveResult;
 import org.quarkpress.revisions.Revisions;
@@ -44,10 +49,10 @@ import org.quarkpress.security.SystemIdentity;
 /**
  * Test scaffolding, not part of any API (a reduced copy of the QuarkPress REST test application's resource, with its
  * route shapes): sets up what the browser flows need and the REST API does not serve (memberships, sites, posts by a
- * given user, autosaves, edit locks, options, permanent deletion) through the modules' Java services. Every call acts
- * on the site the request is bound to (by its Host header and path) and as the caller: {@code /it/...} on the main
- * site, {@code /<site>/it/...} ({@link ItSiteSetupResource}) on a subdirectory site. The calls that write as the system
- * or name another user's data need {@code manage_options}.
+ * given user, autosaves, edit locks, post dates, options, permanent deletion) through the modules' Java services (post
+ * dates straight in the post's row). Every call acts on the site the request is bound to (by its Host header and path)
+ * and as the caller: {@code /it/...} on the main site, {@code /<site>/it/...} ({@link ItSiteSetupResource}) on a
+ * subdirectory site. The calls that write as the system or name another user's data need {@code manage_options}.
  */
 @Path("/it")
 @Produces(MediaType.APPLICATION_JSON)
@@ -67,6 +72,18 @@ public class ItSetupResource {
 
     /** The edit lock of a post: held by {@code user} since {@code age} seconds ago. */
     public record LockRequest(long user, int age) {}
+
+    /**
+     * A post's last-modified time to set ({@code at}, UTC, {@code 2026-10-18T10:00:00}); with {@code date} its
+     * publication time too, when it has one.
+     */
+    public record Backdate(long id, String at, boolean date) {}
+
+    /** The posts to backdate. */
+    public record BackdateRequest(List<Backdate> posts) {}
+
+    @Inject
+    PostRepository postRows;
 
     @Inject
     SecurityIdentity identity;
@@ -195,6 +212,38 @@ public class ItSetupResource {
             return null;
         });
         return Map.of("value", value);
+    }
+
+    /**
+     * Sets the dates of posts of the bound site past the services, for a caller with {@code manage_options}: the row
+     * alone changes (no version, no event, no revision); answers how many posts changed.
+     */
+    @PUT
+    @Path("/backdate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Transactional
+    public Map<String, Object> backdate(BackdateRequest request) {
+        requireManageOptions();
+        int changed = 0;
+        for (Backdate post : request.posts()) {
+            Instant at = LocalDateTime.parse(post.at()).toInstant(ZoneOffset.UTC);
+            changed += postRows.getEntityManager()
+                    .createQuery("update PostEntity p set p.modifiedAt = :at where p.siteId = :site and p.id = :id")
+                    .setParameter("at", at)
+                    .setParameter("site", TenantIds.param(site.siteId()))
+                    .setParameter("id", post.id())
+                    .executeUpdate();
+            if (post.date()) {
+                postRows.getEntityManager()
+                        .createQuery("update PostEntity p set p.publishedAt = :at where p.siteId = :site"
+                                + " and p.id = :id and p.publishedAt is not null")
+                        .setParameter("at", at)
+                        .setParameter("site", TenantIds.param(site.siteId()))
+                        .setParameter("id", post.id())
+                        .executeUpdate();
+            }
+        }
+        return Map.of("changed", changed);
     }
 
     /** Sets an option of the bound site, for a caller with {@code manage_options} there; answers whether it changed. */
