@@ -58,6 +58,7 @@ jobs:
           mvn -B -ntp verify -pl runtime,deployment -DtestDb=${{ matrix.db }}
           mvn -B -ntp verify -pl integration-tests -DtestDb=${{ matrix.db }}
           bash .github/scripts/require-tests-ran.sh integration-tests/target/surefire-reports/TEST-org.quarkpress.it.admin.AdminFlowsDbTest.xml \
+            integration-tests/target/surefire-reports/TEST-org.quarkpress.it.admin.AdminCustomPathFlowsDbTest.xml \
             integration-tests/target/failsafe-reports/TEST-org.quarkpress.it.admin.AdminSmokeIT.xml
       - name: Check formatting
         if: matrix.java == 21 && matrix.db == 'postgresql'
