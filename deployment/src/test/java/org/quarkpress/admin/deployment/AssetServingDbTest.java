@@ -93,6 +93,15 @@ class AssetServingDbTest {
     }
 
     @Test
+    void theVendorLicenceIsServedAsText() throws IOException {
+        Response response = given().get("/wp-admin/quarkpress-admin/vendor/oidc-client-ts.LICENSE");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.header("Content-Type")).isEqualTo("text/plain; charset=utf-8");
+        assertThat(response.asByteArray()).isEqualTo(resource("vendor/oidc-client-ts.LICENSE"));
+    }
+
+    @Test
     void aMissingShellFileIsNotFound() {
         assertThat(given().get("/wp-admin/quarkpress-admin/nope.js").statusCode())
                 .isEqualTo(404);
