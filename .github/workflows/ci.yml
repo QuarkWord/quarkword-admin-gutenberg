@@ -41,22 +41,23 @@ jobs:
       - name: Install the QuarkPress modules at the pinned commit
         working-directory: .quarkpress
         run: mvn -B -ntp install -DskipTests -pl bom,extensions/rest-wp-v2/deployment,extensions/multisite/deployment,extensions/security/deployment,extensions/posts/deployment,extensions/taxonomy/deployment,extensions/revisions/deployment,extensions/scheduling/deployment,extensions/media/deployment,extensions/media-storage-fs/deployment,extensions/media-image-imageio/deployment,extensions/blocks/deployment,extensions/outbound/deployment -am
-      # enabled by Task 5
-      # - name: Install the admin modules
-      #   run: mvn -B -ntp install -DskipTests -pl runtime,deployment -am
-      # enabled by Task 5
-      # - name: Cache Playwright's browsers
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ~/.cache/ms-playwright
-      #     key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
-      # enabled by Task 5
-      # - name: Install Playwright's Chromium
-      #   run: mvn -B -ntp -pl integration-tests exec:java -Dexec.classpathScope=test -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium"
+      # The test application (integration-tests) resolves the admin modules from the local repository.
+      - name: Install the admin modules
+        run: mvn -B -ntp install -DskipTests -pl runtime,deployment -am
+      - name: Cache Playwright's browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install Playwright's Chromium
+        run: mvn -B -ntp -pl integration-tests exec:java -Dexec.classpathScope=test -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium"
+      # The browser flows run in a Maven invocation of their own, never beside the extension's database tests; the
+      # last line fails the step when the flows were renamed, filtered out or skipped.
       - name: Build and test
-        run: mvn -B -ntp verify -DtestDb=${{ matrix.db }}
-        # enabled by Task 5, appended to the run above:
-        # bash .github/scripts/require-tests-ran.sh integration-tests/target/surefire-reports/TEST-org.quarkpress.it.admin.AdminFlowsDbTest.xml
+        run: |
+          mvn -B -ntp verify -pl runtime,deployment -DtestDb=${{ matrix.db }}
+          mvn -B -ntp verify -pl integration-tests -DtestDb=${{ matrix.db }}
+          bash .github/scripts/require-tests-ran.sh integration-tests/target/surefire-reports/TEST-org.quarkpress.it.admin.AdminFlowsDbTest.xml
       - name: Check formatting
         if: matrix.java == 21 && matrix.db == 'postgresql'
         run: mvn -B -ntp spotless:check
