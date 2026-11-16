@@ -1080,6 +1080,65 @@ class AdminFlowsDbTest {
     }
 
     @Test
+    void anExpiringTokenAndARefusedRequestShareOneRenewal() {
+        long post = setup.post("bob", "post", "publish", "Renewed once " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            AtomicInteger tokenRequests = new AtomicInteger();
+            AtomicReference<Route> held = new AtomicReference<>();
+            // the first renewal is held until the refused save has asked for one too
+            context.route("**/protocol/openid-connect/token", route -> {
+                if (tokenRequests.incrementAndGet() == 1) {
+                    held.set(route);
+                } else {
+                    route.resume();
+                }
+            });
+            List<String> authorizations = new CopyOnWriteArrayList<>();
+            page.route(url -> url.contains("/wp-json/wp/v2/posts/" + post + "?"), route -> {
+                if (isSave(route.request(), "posts", post)) {
+                    authorizations.add(route.request().headers().get("authorization"));
+                    if (authorizations.size() == 1) {
+                        route.fulfill(new Route.FulfillOptions()
+                                .setStatus(401)
+                                .setContentType("application/json")
+                                .setBody(NOT_LOGGED_IN));
+                        return;
+                    }
+                }
+                route.resume();
+            });
+            // the stored token now expires in 30 s: opened again, the editor's token is about to expire at once
+            page.evaluate("() => { for (const key of Object.keys(sessionStorage)) { if (key.startsWith('oidc.user:')) {"
+                    + " const user = JSON.parse(sessionStorage.getItem(key));"
+                    + " user.expires_at = Math.floor(Date.now() / 1000) + 30;"
+                    + " sessionStorage.setItem(key, JSON.stringify(user)); } } }");
+            page.reload();
+            awaitMounted(page);
+            page.waitForCondition(() -> held.get() != null);
+
+            page.evaluate("() => { const auth = quarkpressAdmin.auth; const refresh = auth.refresh;"
+                    + " window.qpRefreshes = 0; auth.refresh = () => { window.qpRefreshes++; return refresh(); }; }");
+            page.evaluate("() => wp.data.dispatch('core/editor').editPost({ title: 'Renewed once and saved' })");
+            page.evaluate("() => { wp.data.dispatch('core/editor').savePost(); }");
+            // the refused save asks for a renewal while the one before expiry is still running
+            page.waitForFunction("() => window.qpRefreshes === 1");
+            held.get().resume();
+            page.waitForFunction("() => !wp.data.select('core/editor').isSavingPost()"
+                    + " && wp.data.select('core/editor').didPostSaveRequestSucceed()");
+
+            assertThat(tokenRequests.get()).isEqualTo(1);
+            assertThat(authorizations).hasSize(2);
+            assertThat(authorizations.get(1)).startsWith("Bearer ").isNotEqualTo(authorizations.get(0));
+            assertThat(setup.rest("bob", "/", "wp/v2/posts/" + post + "?context=edit")
+                            .getString("title.raw"))
+                    .isEqualTo("Renewed once and saved");
+            takeExpectedFailures(401);
+        }
+    }
+
+    @Test
     void aFailedRenewalShowsTheSessionOverlayAndLocksSaving() {
         long post = setup.post("bob", "post", "publish", "Expired " + token());
 
@@ -1932,6 +1991,10 @@ class AdminFlowsDbTest {
                     .doesNotContain("access_token")
                     .doesNotContain("code=");
             assertThat(popup.content()).contains("Previewed text");
+            // records current behaviour, an exposure carried to M3: Chromium copies the tab's sessionStorage, tokens
+            // included, into the preview window; a fix that keeps them out flips this to false
+            assertThat(popup.evaluate("() => Object.keys(sessionStorage).some(k => k.startsWith('oidc.user:'))"))
+                    .isEqualTo(true);
             // a draft is saved, not autosaved, before its preview
             assertThat(setup.rest("bob", "/", "wp/v2/posts/" + post + "?context=edit")
                             .getString("content.raw"))
