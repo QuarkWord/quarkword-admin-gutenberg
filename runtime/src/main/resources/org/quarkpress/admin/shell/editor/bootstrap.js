@@ -3,11 +3,13 @@
 // date settings; the post lock, taken before anything is mounted (a lock another user holds shows WordPress's dialog
 // first); the api-fetch middlewares (root URL, the user's token, uploads, preloads, and the freeze once the post is
 // taken over); the date and locale settings; the block categories and server definitions; the user's stored
-// preferences; the canvas styles WordPress hands the editor; then wp.editPost.initializeEditor on #editor, as
-// WordPress's edit screen calls it; then the lock is refreshed while the editor is open and released when it is left.
+// preferences; the canvas styles WordPress hands the editor; the preview session, so that the front end renders the
+// user's previews; then wp.editPost.initializeEditor on #editor, as WordPress's edit screen calls it; then the lock is
+// refreshed while the editor is open and released when it is left.
 
 import { installApiFetch } from "../api.js";
 import { createLocks } from "./locks.js";
+import { createPreviewSession } from "./preview.js";
 import { applyLocale, presetVariables } from "./settings.js";
 
 /** What the shell shows over the editor when the session cannot be renewed. */
@@ -143,7 +145,8 @@ async function restorePreferences(api, me) {
  * `{outcome: "mounted", post}` once `initializeEditor` has run, or `{outcome: "trash"}` without mounting for a post in
  * the trash; rejects with the route's or the lock's `RestError` (404, 403, 401). While another user holds the lock,
  * WordPress's dialog is shown and nothing is mounted until the user takes over. The lock is
- * `window.quarkpressAdmin.locks`.
+ * `window.quarkpressAdmin.locks`, the preview session `window.quarkpressAdmin.preview` (opened before the editor
+ * mounts; the editor is mounted even when it cannot be opened, only previews then show nothing).
  *
  * @param {{config: object, auth: object, api: object, type: string, id: number}} ctx
  */
@@ -172,6 +175,21 @@ export async function bootstrap(ctx) {
 
   installApiFetch(config, auth, preload);
   wp.apiFetch.use(locks.guard);
+
+  function sessionExpired() {
+    const editor = wp.data.dispatch("core/editor");
+    editor.lockPostSaving("quarkpress-session");
+    editor.lockPostAutosaving("quarkpress-session");
+    showOverlay(SESSION_EXPIRED, { label: "Log in again", onClick: () => auth.signIn(location.href) });
+  }
+  auth.onExpired(sessionExpired);
+
+  // opened beside the rest of the preparation, and awaited before the editor mounts
+  const preview = createPreviewSession({ api, onUnauthorized: sessionExpired });
+  window.quarkpressAdmin.preview = preview;
+  const previewOpened = preview.open().catch(() => {
+    // reported by the session; editing goes on without previews
+  });
   applyLocale(route.dateSettings);
   wp.blocks.setCategories(route.settings.blockCategories || []);
   wp.blocks.unstable__bootstrapServerSideBlockDefinitions(route.blockDefinitions || {});
@@ -197,12 +215,7 @@ export async function bootstrap(ctx) {
   const title = post && post.title && !newPost ? post.title.raw : "";
   document.title = `${title || heading} ‹ QuarkPress`;
 
-  auth.onExpired(() => {
-    const editor = wp.data.dispatch("core/editor");
-    editor.lockPostSaving("quarkpress-session");
-    editor.lockPostAutosaving("quarkpress-session");
-    showOverlay(SESSION_EXPIRED, { label: "Log in again", onClick: () => auth.signIn(location.href) });
-  });
+  await previewOpened;
 
   window._wpLoadBlockEditor = new Promise((resolve) => {
     wp.domReady(() => {

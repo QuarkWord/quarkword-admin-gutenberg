@@ -17,6 +17,21 @@ const header = document.querySelector("#quarkpress-admin > header");
 /** The screens the server answers with the editor page, never with this one. */
 const EDITOR_SCREENS = new Set(["edit", "revision"]);
 
+/** The longest the sign-out waits for the preview sessions to close (milliseconds). */
+const CLOSE_PREVIEWS_WITHIN = 5000;
+
+/**
+ * Logs out as WordPress does, which ends the user's previews with the login: first closes the user's preview sessions
+ * on the site (best effort: a failure or a slow answer never keeps the user signed in), then signs out.
+ */
+async function logOut(api, auth) {
+  const closing = api.fetchJson("quarkpress/v1/preview/session", { method: "DELETE" }).catch((failure) => {
+    console.warn("QuarkPress admin: the preview sessions could not be closed.", failure);
+  });
+  await Promise.race([closing, new Promise((resolve) => setTimeout(resolve, CLOSE_PREVIEWS_WITHIN))]);
+  await auth.signOut();
+}
+
 /** Creates a draft of `type` and opens it in the editor. */
 async function createDraft(api, config, type) {
   try {
@@ -28,7 +43,7 @@ async function createDraft(api, config, type) {
   }
 }
 
-function renderHeader(auth) {
+function renderHeader(auth, api) {
   const user = auth.user();
   const name = user && user.profile ? user.profile.name || user.profile.preferred_username : "";
   header.replaceChildren(
@@ -49,7 +64,7 @@ function renderHeader(auth) {
       { class: "qp-account" },
       name ? h("span", {}, name) : null,
       " ",
-      h("button", { type: "button", class: "button-link", onclick: () => auth.signOut() }, "Log Out"),
+      h("button", { type: "button", class: "button-link", onclick: () => logOut(api, auth) }, "Log Out"),
     ),
   );
 }
@@ -87,7 +102,7 @@ async function start() {
     await createDraft(api, config, where.params.post_type);
     return;
   }
-  renderHeader(auth);
+  renderHeader(auth, api);
   const ctx = {
     api,
     main,
