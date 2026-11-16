@@ -229,12 +229,16 @@ class AdminPagesDbTest {
                 .contains("<main id=\"qp-main\" tabindex=\"-1\">")
                 .contains("<div id=\"qp-notices\" role=\"status\" aria-live=\"polite\">")
                 .contains("<link rel=\"stylesheet\" href=\"quarkpress-admin/shell.css\">")
+                // WordPress's view-transitions opt-in, printed on every admin screen
+                .contains("<style id=\"wp-view-transitions-admin-inline-css\">\n")
+                .contains("@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}")
                 .endsWith("<script type=\"module\" src=\"quarkpress-admin/app.js\"></script>\n</body>\n</html>\n");
         // the sign-in client's classic script first, then the shell's module, and nothing else
         int client = page.indexOf("<script src=\"quarkpress-admin/vendor/oidc-client-ts.js\"></script>");
         int module = page.indexOf("<script type=\"module\" src=\"quarkpress-admin/app.js\"");
         assertThat(page.indexOf("<script")).isEqualTo(client).isLessThan(module);
         assertThat(page.indexOf("<script", client + 1)).isEqualTo(module);
+        assertThat(page.indexOf("wp-view-transitions-admin-inline-css")).isLessThan(page.indexOf("</head>"));
     }
 
     @Test
