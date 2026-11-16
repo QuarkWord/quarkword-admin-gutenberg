@@ -22,7 +22,9 @@ export function createAuth(config) {
     response_type: "code",
     userStore: store(),
     stateStore: store(),
-    automaticSilentRenew: true,
+    // the renewal before expiry goes through refresh() below, as the renewal after a refused request does, so that the
+    // refresh token is never sent twice at once (a provider that rotates refresh tokens would refuse the second)
+    automaticSilentRenew: false,
     loadUserInfo: false,
   });
   let current = null;
@@ -42,10 +44,16 @@ export function createAuth(config) {
   manager.events.addUserUnloaded(() => {
     current = null;
   });
-  manager.events.addSilentRenewError((error) => renewalFailed(error));
 
   // sign-ins left unfinished leave their state behind
   manager.clearStaleState().catch(() => {});
+
+  // a minute before the access token expires: renew it, once, beside any renewal a refused request asks for
+  manager.events.addAccessTokenExpiring(() => {
+    refresh().catch(() => {
+      // reported to the onExpired callbacks by refresh()
+    });
+  });
 
   /** Where to go after signing in: a page of this site's admin folder, else the admin folder itself. */
   function safeReturn(returnTo) {
@@ -57,7 +65,7 @@ export function createAuth(config) {
 
   /**
    * Signs in again without the user's help (with the refresh token); rejects when that fails, after telling the
-   * `onExpired` callbacks.
+   * `onExpired` callbacks. Calls made while a renewal runs share it: one token request at a time.
    */
   function refresh() {
     if (!refreshing) {
@@ -145,7 +153,7 @@ export function createAuth(config) {
     },
 
     /**
-     * Calls `callback` whenever the session cannot be renewed: the automatic renewal before the token expires failed,
+     * Calls `callback` whenever the session cannot be renewed: the renewal a minute before the token expires failed,
      * or a renewal asked for after a refused request (`refresh`) failed.
      */
     onExpired(callback) {

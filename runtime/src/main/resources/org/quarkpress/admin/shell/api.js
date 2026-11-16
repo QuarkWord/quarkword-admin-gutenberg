@@ -150,6 +150,19 @@ function belowRoot(config, url) {
 }
 
 /**
+ * The route an api-fetch request goes to below the site's REST root, decided as `bearerMiddleware` decides where it
+ * goes: the normalised path below the root, without the query and without leading or trailing slashes (such as
+ * `wp/v2/posts/7`); null when the request goes elsewhere or names no address.
+ */
+export function restRoute(config, options) {
+  const target = destination(config, options);
+  if (!target || !belowRoot(config, target.url)) {
+    return null;
+  }
+  return target.url.pathname.slice(new URL(config.restRoot).pathname.length).replace(/^\/+|\/+$/g, "");
+}
+
+/**
  * The api-fetch middleware that signs the editor's requests to the site's REST API (`config.restRoot`), and only
  * those (a path request whose path leaves the REST root is refused unsent; a `url` elsewhere goes unsigned): adds
  * `Authorization: Bearer <token>` unless the request has an `Authorization` header already; on a 401 renews

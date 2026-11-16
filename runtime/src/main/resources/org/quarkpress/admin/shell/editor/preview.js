@@ -28,7 +28,6 @@ const LONGEST_DELAY = 2147483647;
  *   `HttpOnly` cookie the browser keeps for the site's path; the renewal is then scheduled at 80% of `expires_in`.
  *   Resolves to the answer; rejects with the request's error.
  * - `renew()` opens a new session at once (the scheduled renewal calls it), and schedules the next.
- * - `close()` closes the user's sessions on the site (`DELETE`) and stops renewing.
  * - `scheduled()` tells whether a renewal is scheduled.
  *
  * A refusal for want of a session (401, after the request's own token renewal) calls `ctx.onUnauthorized` and stops
@@ -41,7 +40,6 @@ export function createPreviewSession(ctx) {
   const { api, onUnauthorized } = ctx;
   const path = "quarkpress/v1/preview/session";
   let timer = null;
-  let closed = false;
 
   function cancel() {
     if (timer !== null) {
@@ -52,9 +50,6 @@ export function createPreviewSession(ctx) {
 
   function schedule(seconds) {
     cancel();
-    if (closed) {
-      return;
-    }
     const delay = Math.min(Math.max(seconds, 1) * 1000, LONGEST_DELAY);
     timer = setTimeout(() => {
       timer = null;
@@ -63,7 +58,6 @@ export function createPreviewSession(ctx) {
   }
 
   async function open() {
-    closed = false;
     let answer;
     try {
       answer = await api.fetchJson(path, { method: "POST" });
@@ -89,15 +83,9 @@ export function createPreviewSession(ctx) {
     return open();
   }
 
-  async function close() {
-    closed = true;
-    cancel();
-    return api.fetchJson(path, { method: "DELETE" });
-  }
-
   function scheduled() {
     return timer !== null;
   }
 
-  return { open, renew, close, scheduled };
+  return { open, renew, scheduled };
 }

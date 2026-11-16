@@ -111,6 +111,26 @@ function resolvedAssets(config, settings) {
 }
 
 /**
+ * The editor's links into the admin screens, rebased on this admin folder (`adminUrl`): the dashboard link and the
+ * newer autosave's link to its revision screen. The editor route writes both from the REST module's dashboard setting,
+ * which knows neither the admin path nor, on a network, each site's admin folder.
+ */
+export function adminLinks(settings, adminUrl) {
+  const links = { __experimentalDashboardLink: adminUrl };
+  const dashboard = settings.__experimentalDashboardLink;
+  const autosave = settings.autosave;
+  if (
+    autosave &&
+    typeof autosave.editLink === "string" &&
+    typeof dashboard === "string" &&
+    autosave.editLink.startsWith(dashboard)
+  ) {
+    links.autosave = { ...autosave, editLink: adminUrl + autosave.editLink.slice(dashboard.length) };
+  }
+  return links;
+}
+
+/**
  * The user's stored editor preferences, as WordPress prints them into its page: the object, or `""` when there are
  * none (REST answers an empty array for no preferences).
  */
@@ -200,6 +220,7 @@ export async function bootstrap(ctx) {
 
   const settings = {
     ...route.settings,
+    ...adminLinks(route.settings, config.adminUrl),
     // the lock is the shell's: the editor's own dialog, which the route's report of another user's lock would open,
     // never shows
     postLock: { isLocked: false },

@@ -6,6 +6,8 @@
 // refresh finds that another user has taken over, the editor autosaves once, saving is frozen and WordPress's
 // "taken over" dialog is shown; WordPress itself keeps autosaving on every refusal, the shell does it once.
 
+import { restRoute } from "../api.js";
+
 /** WordPress's lock dialog titles and texts. */
 export const LOCKED_TITLE = "This post is already being edited";
 export const TAKEN_OVER_TITLE = "Someone else has taken over this post";
@@ -108,28 +110,6 @@ function removeDialog() {
   if (shown) {
     shown.remove();
   }
-}
-
-/** The path an api-fetch request names below the REST root, without its query; null when it names none there. */
-function requestPath(config, options) {
-  let path = null;
-  if (typeof options.namespace === "string" && typeof options.endpoint === "string") {
-    path = `${options.namespace}/${options.endpoint}`;
-  } else if (typeof options.path === "string") {
-    path = options.path;
-  } else if (typeof options.url === "string") {
-    try {
-      const url = new URL(options.url, document.baseURI);
-      path = url.href.startsWith(config.restRoot) ? url.href.slice(config.restRoot.length) : null;
-    } catch (notAnAddress) {
-      path = null;
-    }
-  }
-  if (path === null) {
-    return null;
-  }
-  const query = path.indexOf("?");
-  return (query < 0 ? path : path.slice(0, query)).replace(/^\/+|\/+$/g, "");
 }
 
 /** A request that writes (any method but GET, HEAD and OPTIONS, after a method override). */
@@ -348,7 +328,7 @@ export function createLocks(ctx, type, id) {
   }
 
   async function guard(options, next) {
-    if (frozen && writes(options) && ownRoute(requestPath(config, options))) {
+    if (frozen && writes(options) && ownRoute(restRoute(config, options))) {
       throw { code: "quarkpress_post_lock_lost", message: lost.text || "", data: { status: 409 } };
     }
     return next(options);
