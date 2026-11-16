@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fails unless each named Surefire report exists and records at least one test and no skipped one: a parity test
-# that was renamed, filtered out or disabled must not let its CI step pass.
+# Fails unless each named Surefire or Failsafe report exists and records at least one test and no skipped one: a test
+# class that was renamed, filtered out or disabled must not let its CI step pass.
 # Usage: require-tests-ran.sh TEST-<class>.xml...
 set -euo pipefail
 status=0

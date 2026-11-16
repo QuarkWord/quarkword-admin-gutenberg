@@ -57,10 +57,12 @@ jobs:
       # need FreeType and fontconfig on the host that runs it. Usually preinstalled on ubuntu-latest; made explicit here.
       - name: Install the AWT runtime libraries
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libfreetype6 fontconfig
-      # No -am: the step above installed runtime and deployment, so their unit tests do not run again here.
+      # No -am: the step above installed runtime and deployment, so their unit tests do not run again here. The last
+      # line fails the step when the smoke flow was renamed, filtered out or skipped.
       - name: Build the native executable and run the integration tests
-        run: >-
-          mvn -B -ntp -T1 verify -fae -Dnative -Dquarkus.native.container-build=true
-          -Dquarkus.native.builder-image=mandrel -DskipUnitTests=true
-          -Dquarkus.native.additional-build-args=-J-XX:TieredStopAtLevel=1,--parallelism=8
-          -DtestDb=${{ matrix.db }} -pl integration-tests
+        run: |
+          mvn -B -ntp -T1 verify -fae -Dnative -Dquarkus.native.container-build=true \
+            -Dquarkus.native.builder-image=mandrel -DskipUnitTests=true \
+            -Dquarkus.native.additional-build-args=-J-XX:TieredStopAtLevel=1,--parallelism=8 \
+            -DtestDb=${{ matrix.db }} -pl integration-tests
+          bash .github/scripts/require-tests-ran.sh integration-tests/target/failsafe-reports/TEST-org.quarkpress.it.admin.AdminSmokeIT.xml
