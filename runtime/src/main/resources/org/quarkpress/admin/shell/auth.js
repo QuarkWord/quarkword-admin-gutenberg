@@ -27,6 +27,14 @@ export function createAuth(config) {
   });
   let current = null;
   let refreshing = null;
+  const expired = [];
+
+  /** Tells every `onExpired` callback that the session could not be renewed. */
+  function renewalFailed(error) {
+    for (const callback of expired) {
+      callback(error);
+    }
+  }
 
   manager.events.addUserLoaded((user) => {
     current = user;
@@ -34,6 +42,7 @@ export function createAuth(config) {
   manager.events.addUserUnloaded(() => {
     current = null;
   });
+  manager.events.addSilentRenewError((error) => renewalFailed(error));
 
   // sign-ins left unfinished leave their state behind
   manager.clearStaleState().catch(() => {});
@@ -46,7 +55,10 @@ export function createAuth(config) {
     return config.adminUrl;
   }
 
-  /** Signs in again without the user's help (with the refresh token); rejects when that fails. */
+  /**
+   * Signs in again without the user's help (with the refresh token); rejects when that fails, after telling the
+   * `onExpired` callbacks.
+   */
   function refresh() {
     if (!refreshing) {
       refreshing = manager
@@ -57,6 +69,10 @@ export function createAuth(config) {
           }
           current = user;
           return user;
+        })
+        .catch((failure) => {
+          renewalFailed(failure);
+          throw failure;
         })
         .finally(() => {
           refreshing = null;
@@ -128,10 +144,12 @@ export function createAuth(config) {
       await manager.signoutRedirect();
     },
 
-    /** Calls `callback` when the access token expires or its silent renewal fails. */
+    /**
+     * Calls `callback` whenever the session cannot be renewed: the automatic renewal before the token expires failed,
+     * or a renewal asked for after a refused request (`refresh`) failed.
+     */
     onExpired(callback) {
-      manager.events.addAccessTokenExpired(() => callback());
-      manager.events.addSilentRenewError((error) => callback(error));
+      expired.push(callback);
     },
 
     /** The signed-in user (oidc-client-ts's `User`), or null. */

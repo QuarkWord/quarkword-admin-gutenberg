@@ -191,6 +191,27 @@
   border-left: 4px solid #d63638;
 }
 
+/* Over everything, the editor included: only its button leads on. */
+.qp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.qp-overlay-box {
+  max-width: 28rem;
+  padding: 1.5rem;
+  background: #fff;
+  color: #1e1e1e;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .qp-signin {
   max-width: 20rem;
   margin: 4rem auto;

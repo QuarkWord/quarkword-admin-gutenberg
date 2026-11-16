@@ -6,7 +6,7 @@
 import { loadConfig } from "./config.js";
 import { createAuth } from "./auth.js";
 import { createApi } from "./api.js";
-import { route } from "./router.js";
+import { rememberType, route } from "./router.js";
 import { renderSignIn } from "./screens/signin.js";
 import { h, renderList } from "./screens/lists.js";
 import { clearNotices, notice } from "./screens/notices.js";
@@ -21,6 +21,7 @@ const EDITOR_SCREENS = new Set(["edit", "revision"]);
 async function createDraft(api, config, type) {
   try {
     const draft = await api.fetchJson("quarkpress/v1/drafts", { method: "POST", body: { type } });
+    rememberType(draft.id, draft.type);
     location.replace(`${config.adminUrl}post.php?post=${draft.id}&action=edit`);
   } catch (failure) {
     notice(failure.message, { error: true });

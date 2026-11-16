@@ -115,24 +115,44 @@ function isUnauthorized(error) {
   return !!error && (error.status === 401 || (!!error.data && error.data.status === 401));
 }
 
+/** The path api-fetch builds for a request: `namespace` and `endpoint` joined when both are given, else `path`. */
+function requestPath(options) {
+  if (typeof options.namespace === "string" && typeof options.endpoint === "string") {
+    return `${options.namespace.replace(/^\/+|\/+$/g, "")}/${options.endpoint.replace(/^\/+/, "")}`;
+  }
+  return typeof options.path === "string" ? options.path : null;
+}
+
 /**
- * Whether an api-fetch request goes to the site's REST API: a `path` request (the root-URL middleware puts it below
- * the REST root), or a `url` that resolves below the REST root.
+ * Where an api-fetch request goes, as its root-URL middleware decides: a request with a path (a string `path`, or
+ * `namespace` with `endpoint`) goes to the REST root followed by the path without its leading slash, whatever its
+ * `url`; any other request to its `url`. Answers `{url, path}` (`path` true for a path request), or null when the
+ * request names no address.
  */
-function toRestApi(config, options) {
-  if (options.url === undefined || options.url === null) {
-    return options.path !== undefined && options.path !== null;
-  }
+function destination(config, options) {
   try {
-    return new URL(options.url, document.baseURI).href.startsWith(config.restRoot);
+    const path = requestPath(options);
+    if (path !== null) {
+      return { url: new URL(config.restRoot + path.replace(/^\//, "")), path: true };
+    }
+    if (options.url === undefined || options.url === null) {
+      return null;
+    }
+    return { url: new URL(options.url, document.baseURI), path: false };
   } catch (notAnAddress) {
-    return false;
+    return null;
   }
+}
+
+/** Whether an address is below the site's REST root (an address with a user name never is). */
+function belowRoot(config, url) {
+  return url.href.startsWith(config.restRoot);
 }
 
 /**
  * The api-fetch middleware that signs the editor's requests to the site's REST API (`config.restRoot`), and only
- * those: adds `Authorization: Bearer <token>` unless the request has an `Authorization` header already; on a 401 renews
+ * those (a path request whose path leaves the REST root is refused unsent; a `url` elsewhere goes unsigned): adds
+ * `Authorization: Bearer <token>` unless the request has an `Authorization` header already; on a 401 renews
  * the token silently and runs the request once more. A failed renewal, or a second 401, rejects with the first error;
  * nothing is retried twice. Without a token the request is not sent: it rejects as not logged in.
  */
@@ -146,7 +166,12 @@ export function bearerMiddleware(config, auth) {
   }
 
   return async (options, next) => {
-    if (hasAuthorization(options.headers) || !toRestApi(config, options)) {
+    const target = destination(config, options);
+    if (target && target.path && !belowRoot(config, target.url)) {
+      // a path is the REST API's by definition: one that climbs out of the REST root is not sent at all
+      throw new Error(`Not a REST API address of this site: ${target.url.href}`);
+    }
+    if (hasAuthorization(options.headers) || !target || !belowRoot(config, target.url)) {
       return next(options);
     }
     const first = await signed(options);

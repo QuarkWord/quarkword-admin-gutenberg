@@ -9,3 +9,7 @@ shell.css
 screens/signin.js
 screens/lists.js
 screens/notices.js
+editor.js
+editor/bootstrap.js
+editor/settings.js
+l10n/en-us.js

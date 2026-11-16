@@ -21,15 +21,22 @@ export async function loadConfig() {
 }
 
 /**
- * Whether `address` (resolved against `adminUrl`) is a page of the admin folder itself: the same origin, below the
- * admin folder, no further folder. Only such an address keeps the page's relative URLs resolving the same way.
+ * Whether `address` (resolved against `adminUrl`) is a page of the admin folder itself: the same origin, no user name
+ * or password, below the admin folder, no further folder. Only such an address keeps the page's relative URLs
+ * resolving the same way.
  */
 export function sameFolder(address, adminUrl) {
   try {
     const folder = new URL(adminUrl);
     const url = new URL(address, adminUrl);
     const rest = url.pathname.slice(folder.pathname.length);
-    return url.origin === folder.origin && url.pathname.startsWith(folder.pathname) && !rest.includes("/");
+    return (
+      url.origin === folder.origin &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname.startsWith(folder.pathname) &&
+      !rest.includes("/")
+    );
   } catch (notAnAddress) {
     return false;
   }

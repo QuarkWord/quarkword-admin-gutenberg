@@ -2,6 +2,7 @@
 // The posts, pages and media lists: wp-admin's list screens on the REST API (edit context), with the status views and
 // their counts, paging, and the row actions Move to Trash, Restore and Delete Permanently.
 
+import { rememberType } from "../router.js";
 import { clearNotices, deletedText, notice, trashedNotice, untrashedText } from "./notices.js";
 
 /** An element with attributes (`on<event>` adds a listener) and children (text or nodes). */
@@ -285,7 +286,17 @@ async function renderPosts(list, kind, params, ctx, message) {
         h(
           "strong",
           {},
-          trashed ? title : h("a", { class: "row-title", href: `post.php?post=${item.id}&action=edit` }, title),
+          trashed
+            ? title
+            : h(
+                "a",
+                {
+                  class: "row-title",
+                  href: `post.php?post=${item.id}&action=edit`,
+                  onclick: () => rememberType(item.id, item.type),
+                },
+                title,
+              ),
           state && view.key !== item.status ? h("span", { class: "post-state" }, ` — ${state}`) : null,
         ),
         h("div", { class: "row-actions" }, actions),

@@ -3,6 +3,8 @@ package org.quarkpress.admin.deployment;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.QuarkusExtensionTest;
 import io.restassured.response.Response;
 import java.util.ArrayList;
@@ -36,7 +38,8 @@ class AdminPagesDbTest {
                 .contains("<body class=\"wp-admin wp-core-ui js is-fullscreen-mode block-editor-page"
                         + " admin-color-modern locale-en-us\">");
         assertThat(page).contains("<div id=\"quarkpress-admin\" data-admin-path=\"/wp-admin/\">");
-        assertThat(page).contains("<div id=\"editor\" class=\"block-editor__container hide-if-no-js\"></div>");
+        assertThat(page)
+                .contains("<div id=\"editor\" class=\"block-editor__container hide-if-no-js\" data-iframe-styles=");
 
         List<String> scripts = ids(page, "-js\"");
         AssetRegistry registry = AssetRegistry.load();
@@ -140,6 +143,68 @@ class AdminPagesDbTest {
                 .doesNotContain("heartbeat")
                 .doesNotContain("__clientSideMediaProcessing")
                 .doesNotContain("admin-ajax");
+    }
+
+    @Test
+    void theEditorPageNamesTheIframeStyles() throws Exception {
+        String page = given().get("/wp-admin/post.php?post=1&action=edit").asString();
+
+        String marker = "<div id=\"editor\" class=\"block-editor__container hide-if-no-js\" data-iframe-styles=\"";
+        int start = page.indexOf(marker);
+        assertThat(start).isPositive();
+        int end = page.indexOf('"', start + marker.length());
+        String attribute = page.substring(start + marker.length(), end)
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&");
+        JsonNode styles = new ObjectMapper().readTree(attribute);
+
+        List<String> handles = new ArrayList<>();
+        for (JsonNode style : styles) {
+            handles.add(style.get("handle").asText());
+            assertThat(style.size()).isEqualTo(3);
+        }
+        // wp-edit-blocks after everything it depends on, in resolution order, then the classic theme's sheet
+        assertThat(handles)
+                .containsExactly(
+                        "wp-theme",
+                        "wp-base-styles",
+                        "wp-components",
+                        "common",
+                        "forms",
+                        "wp-reset-editor-styles",
+                        "wp-block-library",
+                        "wp-block-editor-content",
+                        "wp-editor-classic-layout-styles",
+                        "wp-edit-blocks",
+                        "classic-theme-styles");
+        AssetRegistry registry = AssetRegistry.load();
+        for (JsonNode style : styles) {
+            AssetRegistry.Asset asset =
+                    registry.stylesByHandle().get(style.get("handle").asText());
+            assertThat(style.get("file").asText()).isEqualTo(asset.file().orElseThrow());
+            assertThat(style.get("ver").asText()).isEqualTo(asset.ver());
+        }
+        assertThat(styles.get(0).get("file").asText()).isEqualTo("wp-includes/css/dist/theme/design-tokens.min.css");
+        assertThat(styles.get(9).get("file").asText()).isEqualTo("wp-includes/css/dist/block-library/editor.min.css");
+
+        // and the iframe's one script: the polyfill, which the editor page itself does not print
+        String scriptsMarker = "\" data-iframe-scripts=\"";
+        int scriptsAt = page.indexOf(scriptsMarker, end);
+        assertThat(scriptsAt).isEqualTo(end);
+        String scriptsAttribute = page.substring(
+                        scriptsAt + scriptsMarker.length(), page.indexOf('"', scriptsAt + scriptsMarker.length()))
+                .replace("&quot;", "\"")
+                .replace("&amp;", "&");
+        assertThat(new ObjectMapper().readTree(scriptsAttribute).toString())
+                .isEqualTo("[{\"handle\":\"wp-polyfill\",\"file\":\"wp-includes/js/dist/vendor/wp-polyfill.min.js\","
+                        + "\"ver\":\"3.15.0\"}]");
+
+        assertThat(given().get("/wp-admin/edit.php").asString())
+                .doesNotContain("data-iframe-styles")
+                .doesNotContain("data-iframe-scripts");
     }
 
     @Test

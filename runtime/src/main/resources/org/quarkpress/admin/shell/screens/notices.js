@@ -60,11 +60,14 @@ export function deletedText(count, type) {
   return `${counted(count, type)} permanently deleted.`;
 }
 
+/** WordPress's error when nothing the undo names could be restored from the trash. */
+export const UNTRASH_FAILED = "Error in restoring from Trash.";
+
 /**
  * The notice after posts were moved to the trash, with "Undo": of the posts the address names, those that are in the
  * trash go back to drafts (as WordPress's untrash does, which refuses a post not in the trash), then
  * `ctx.rerender(text)` shows the list again with the restored notice. The address is not trusted: a post it names that
- * is not in the trash is left as it is.
+ * is not in the trash is left as it is; when none of them is, the undo shows WordPress's error instead.
  *
  * @param {number} count
  * @param {number[]} ids
@@ -96,9 +99,12 @@ export function trashedNotice(count, ids, type, ctx) {
           notice(failure.message, { error: true });
           return;
         }
-        if (trashed.length) {
-          await ctx.rerender(untrashedText(trashed.length, type));
+        if (!trashed.length) {
+          // WordPress's untrash of a post that is not in the trash
+          notice(UNTRASH_FAILED, { error: true });
+          return;
         }
+        await ctx.rerender(untrashedText(trashed.length, type));
       },
     },
   });

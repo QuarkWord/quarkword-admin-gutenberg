@@ -3,8 +3,10 @@ package org.quarkpress.admin.runtime;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.quarkpress.admin.runtime.AssetRegistry.Asset;
@@ -36,6 +38,15 @@ public final class PageRenderer {
     /** The vendored sign-in client, whose classic script defines the global {@code oidc} the shell's modules use. */
     private static final String SIGN_IN_CLIENT =
             "<script src=\"quarkpress-admin/vendor/oidc-client-ts.js\"></script>\n";
+
+    /**
+     * The styles WordPress hands the editor's canvas iframe: the block editor's canvas sheet with what it depends on,
+     * and the classic theme's sheet.
+     */
+    static final List<String> IFRAME_STYLES = List.of("wp-edit-blocks", "classic-theme-styles");
+
+    /** The one script WordPress hands the editor's canvas iframe, which the editor page itself does not print. */
+    static final List<String> IFRAME_SCRIPTS = List.of("wp-polyfill");
 
     private static final String EDITOR_BODY_CLASS =
             "wp-admin wp-core-ui js is-fullscreen-mode block-editor-page admin-color-modern locale-en-us";
@@ -144,12 +155,38 @@ public final class PageRenderer {
         if (editor) {
             html.append("<div class=\"block-editor\">")
                     .append("<h1 class=\"screen-reader-text hide-if-no-js\" id=\"qp-editor-title\"></h1>")
-                    .append("<div id=\"editor\" class=\"block-editor__container hide-if-no-js\"></div>")
+                    .append("<div id=\"editor\" class=\"block-editor__container hide-if-no-js\" data-iframe-styles=\"")
+                    .append(attribute(iframeAssets(registry.stylesByHandle(), IFRAME_STYLES)))
+                    .append("\" data-iframe-scripts=\"")
+                    .append(attribute(iframeAssets(registry.scriptsByHandle(), IFRAME_SCRIPTS)))
+                    .append("\"></div>")
                     .append("<noscript><div class=\"wrap block-editor-no-js\"><p>The block editor requires"
                             + " JavaScript. Please enable JavaScript in your browser settings.</p></div></noscript>")
                     .append("</div>\n");
         }
         html.append("</div>\n");
+    }
+
+    /**
+     * The canvas iframe's styles or scripts in resolution order, as JSON: each handle with its file below the site's
+     * root and its version, from which the shell writes the iframe's tags with the site's absolute address.
+     */
+    private static String iframeAssets(Map<String, Asset> handles, List<String> queue) {
+        ObjectMapper json = new ObjectMapper();
+        ArrayNode assets = json.createArrayNode();
+        for (Asset asset : AssetOrder.resolve(handles, queue)) {
+            if (asset.file().isPresent()) {
+                assets.addObject()
+                        .put("handle", asset.handle())
+                        .put("file", asset.file().get())
+                        .put("ver", asset.ver());
+            }
+        }
+        try {
+            return json.writeValueAsString(assets);
+        } catch (JsonProcessingException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private void script(StringBuilder html, String relativePrefix, Asset script) {
