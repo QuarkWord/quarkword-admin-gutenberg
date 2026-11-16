@@ -14,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -73,6 +74,7 @@ class AssetServingDbTest {
         Response missing = given().get("/wp-includes/js/nope.js");
         assertThat(missing.statusCode()).isEqualTo(404);
         assertThat(missing.asByteArray()).isEmpty();
+        assertThat(missing.header("X-Content-Type-Options")).isEqualTo("nosniff");
         // in the zip, but not shipped
         assertThat(given().get("/wp-includes/js/dist/edit-site.min.js").statusCode())
                 .isEqualTo(404);
@@ -103,7 +105,26 @@ class AssetServingDbTest {
 
     @Test
     void aMissingShellFileIsNotFound() {
-        assertThat(given().get("/wp-admin/quarkpress-admin/nope.js").statusCode())
+        Response missing = given().get("/wp-admin/quarkpress-admin/nope.js");
+        assertThat(missing.statusCode()).isEqualTo(404);
+        assertThat(missing.header("X-Content-Type-Options")).isEqualTo("nosniff");
+        Response vendor = given().head("/wp-admin/quarkpress-admin/vendor/nope.js");
+        assertThat(vendor.statusCode()).isEqualTo(404);
+        assertThat(vendor.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    }
+
+    @Test
+    void theAdminFolderWithoutItsSlashIsRedirected() {
+        for (String path : List.of("/wp-admin", "/fv01/wp-admin")) {
+            Response get = given().redirects().follow(false).get(path + "?x=1");
+            assertThat(get.statusCode()).as(path).isEqualTo(301);
+            assertThat(get.header("Location")).as(path).isEqualTo(path + "/?x=1");
+            assertThat(get.header("X-Content-Type-Options")).isEqualTo("nosniff");
+            Response head = given().redirects().follow(false).head(path);
+            assertThat(head.statusCode()).as(path).isEqualTo(301);
+            assertThat(head.header("Location")).as(path).isEqualTo(path + "/");
+        }
+        assertThat(given().redirects().follow(false).get("/wp-adminx").statusCode())
                 .isEqualTo(404);
     }
 

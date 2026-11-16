@@ -45,6 +45,11 @@ class AdminPagesTwoSegmentDbTest {
         assertThat(shell.header("Referrer-Policy")).isEqualTo("strict-origin-when-cross-origin");
         assertThat(given().get("/a/b/edit.php").asString()).contains("data-admin-path=\"/a/b/\"");
 
+        Response folder = given().redirects().follow(false).get("/a/b");
+        assertThat(folder.statusCode()).isEqualTo(301);
+        assertThat(folder.header("Location")).isEqualTo("/a/b/");
+        assertThat(given().redirects().follow(false).get("/wp-admin").statusCode())
+                .isEqualTo(404);
         assertThat(given().get("/wp-admin/post.php").statusCode()).isEqualTo(404);
         assertThat(given().get("/wp-admin/edit.php").statusCode()).isEqualTo(404);
     }
