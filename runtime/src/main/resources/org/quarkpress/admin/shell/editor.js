@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The editor page's entry: settings, sign-in, then the post the address names. A new post (post-new.php) is created
 // first; a post that does not exist, that the user may not edit or that is in the trash gets WordPress's message
-// instead of the editor; revision.php points back to the editor. The address bar is only ever rewritten to a file of
-// the same folder, so the page's relative URLs keep resolving the same way.
+// instead of the editor; revision.php points back to the editor; post.php?get-post-lock=1 (WordPress's "Take over"
+// address, which WordPress honours only with the nonce of a link it printed) opens the post as any opening does, so
+// another user's lock shows the dialog whose button alone takes over. The address bar is only ever rewritten to a file
+// of the same folder, so the page's relative URLs keep resolving the same way.
 
 import { loadConfig } from "./config.js";
 import { createAuth } from "./auth.js";
@@ -160,6 +162,10 @@ async function start() {
     const id = Number.parseInt(where.params.post || "", 10);
     if (!(id > 0) || String(id) !== where.params.post) {
       return message("notFound", NOT_FOUND);
+    }
+    if (where.params["get-post-lock"] !== undefined) {
+      // no takeover by address: the plain edit address, and the lock taken as any opening takes it
+      history.replaceState(null, "", `post.php?post=${id}&action=edit`);
     }
     return edit(env, id, null);
   }

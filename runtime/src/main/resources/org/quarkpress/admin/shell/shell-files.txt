@@ -13,3 +13,4 @@ editor.js
 editor/bootstrap.js
 editor/settings.js
 l10n/en-us.js
+editor/locks.js

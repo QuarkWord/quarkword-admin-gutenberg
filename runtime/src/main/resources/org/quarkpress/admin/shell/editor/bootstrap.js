@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Mounts WordPress's block editor for one post: the editor route's settings, preloaded answers, block definitions and
-// date settings; the api-fetch middlewares (root URL, the user's token, uploads, preloads); the date and locale
-// settings; the block categories and server definitions; the user's stored preferences; the canvas styles WordPress
-// hands the editor; then wp.editPost.initializeEditor on #editor, as WordPress's edit screen calls it.
+// date settings; the post lock, taken before anything is mounted (a lock another user holds shows WordPress's dialog
+// first); the api-fetch middlewares (root URL, the user's token, uploads, preloads, and the freeze once the post is
+// taken over); the date and locale settings; the block categories and server definitions; the user's stored
+// preferences; the canvas styles WordPress hands the editor; then wp.editPost.initializeEditor on #editor, as
+// WordPress's edit screen calls it; then the lock is refreshed while the editor is open and released when it is left.
 
 import { installApiFetch } from "../api.js";
+import { createLocks } from "./locks.js";
 import { applyLocale, presetVariables } from "./settings.js";
 
 /** What the shell shows over the editor when the session cannot be renewed. */
@@ -136,9 +139,11 @@ async function restorePreferences(api, me) {
 }
 
 /**
- * Loads the editor route for the post and mounts the editor. Resolves to `{outcome: "mounted", post}` once
- * `initializeEditor` has run, or `{outcome: "trash"}` without mounting for a post in the trash; rejects with the
- * route's `RestError` (404, 403, 401).
+ * Loads the editor route for the post, takes the post lock and mounts the editor. Resolves to
+ * `{outcome: "mounted", post}` once `initializeEditor` has run, or `{outcome: "trash"}` without mounting for a post in
+ * the trash; rejects with the route's or the lock's `RestError` (404, 403, 401). While another user holds the lock,
+ * WordPress's dialog is shown and nothing is mounted until the user takes over. The lock is
+ * `window.quarkpressAdmin.locks`.
  *
  * @param {{config: object, auth: object, api: object, type: string, id: number}} ctx
  */
@@ -155,7 +160,18 @@ export async function bootstrap(ctx) {
     return { outcome: "trash" };
   }
 
+  const locks = createLocks({ config, api, postPath: `${namespace}/${base}/${id}` }, type, id);
+  window.quarkpressAdmin.locks = locks;
+  await locks.take();
+  window.addEventListener("pagehide", () => locks.release());
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      locks.resume();
+    }
+  });
+
   installApiFetch(config, auth, preload);
+  wp.apiFetch.use(locks.guard);
   applyLocale(route.dateSettings);
   wp.blocks.setCategories(route.settings.blockCategories || []);
   wp.blocks.unstable__bootstrapServerSideBlockDefinitions(route.blockDefinitions || {});
@@ -166,6 +182,9 @@ export async function bootstrap(ctx) {
 
   const settings = {
     ...route.settings,
+    // the lock is the shell's: the editor's own dialog, which the route's report of another user's lock would open,
+    // never shows
+    postLock: { isLocked: false },
     defaultEditorStyles: await defaultEditorStyles(config),
   };
   settings.__unstableResolvedAssets = resolvedAssets(config, settings);
@@ -194,5 +213,6 @@ export async function bootstrap(ctx) {
     wp.data.dispatch("core/edit-post").setAvailableMetaBoxesPerLocation({ side: [], normal: [], advanced: [] });
   });
   await window._wpLoadBlockEditor;
+  locks.start();
   return { outcome: "mounted", post };
 }

@@ -212,6 +212,29 @@
   text-align: center;
 }
 
+.qp-lock-box {
+  text-align: start;
+}
+
+.qp-lock-box h1 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.qp-lock-avatar {
+  float: inline-start;
+  margin: 0 1rem 0.5rem 0;
+  border-radius: 50%;
+}
+
+.qp-lock-actions {
+  display: flex;
+  clear: both;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
 .qp-signin {
   max-width: 20rem;
   margin: 4rem auto;
