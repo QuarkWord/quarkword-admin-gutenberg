@@ -599,7 +599,7 @@ class AdminFlowsDbTest {
         return browsers.adminUrl(sitePath) + "post.php?post=" + id + "&action=edit";
     }
 
-    /** Waits for the editor page to settle: {@code mounted}, {@code notFound}, {@code forbidden}, {@code trash}, … */
+    /** Waits for the editor page to settle: {@code mounted}, {@code notFound}, {@code forbidden}, {@code trash}, \u2026 */
     private static String outcome(Page page) {
         page.waitForFunction("() => window.quarkpressAdmin && window.quarkpressAdmin.outcome");
         return (String) page.evaluate("() => window.quarkpressAdmin.outcome");
@@ -702,7 +702,7 @@ class AdminFlowsDbTest {
             assertThat(visible(page, "BUTTON", "Submit for Review")).isFalse();
             assertThat(page.title())
                     .isEqualTo(page.evaluate("() => wp.data.select('core/editor')" + ".getEditedPostAttribute('title')")
-                            + " ‹ QuarkPress");
+                            + " \u2039 QuarkPress");
             assertThat(page.locator("#qp-editor-title").textContent()).isEqualTo("Edit Post");
         }
         try (BrowserContext context = browsers.context("carol")) {
