@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.quarkpress</groupId>
+    <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>quarkpress-admin-gutenberg</artifactId>
+
+  <name>QuarkPress Admin Gutenberg :: Runtime</name>
+  <description>The QuarkPress admin shell and WordPress's block editor</description>
+
+  <properties>
+    <automatic.module.name>org.quarkpress.admin</automatic.module.name>
+  </properties>
+
+  <dependencies>
+    <!-- The core module, so that the deployment side may declare the module's configuration keys through the core's
+         build items: the extension plugin refuses a deployment that reaches a runtime extension its runtime lacks. -->
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-core</artifactId>
+    </dependency>
+    <!-- The REST API the shell and the editor talk to, and its configured path. -->
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-rest-wp-v2</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-vertx-http</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.quarkus</groupId>
+              <artifactId>quarkus-extension-processor</artifactId>
+              <version>${quarkus.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-extension-maven-plugin</artifactId>
+        <configuration>
+          <capabilities>
+            <provides>org.quarkpress.admingutenberg</provides>
+          </capabilities>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>io.smallrye</groupId>
+        <artifactId>jandex-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

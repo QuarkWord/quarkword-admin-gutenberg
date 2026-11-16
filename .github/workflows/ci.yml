@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: JDK ${{ matrix.java }} / ${{ matrix.db }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [21, 25]
+        db: [postgresql, mysql]
+    steps:
+      - uses: actions/checkout@v4
+      # Read with sed, not Maven: the parent POM imports quarkpress-bom, which is not installed yet, so Maven cannot
+      # build the model before the next steps.
+      - name: Read the pins
+        run: |
+          echo "QUARKPRESS_COMMIT=$(sed -n 's:.*<quarkpress.commit>\(.*\)</quarkpress.commit>.*:\1:p' pom.xml)" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_VERSION=$(sed -n 's:.*<playwright.version>\(.*\)</playwright.version>.*:\1:p' pom.xml)" >> "$GITHUB_ENV"
+      # QuarkPress is not on Maven Central yet: its modules are built from the pinned commit. The checkout stays
+      # inside the workspace (.quarkpress/ is ignored by git and is no module of this build).
+      - uses: actions/checkout@v4
+        with:
+          repository: QuarkPress/quarkpress
+          ref: ${{ env.QUARKPRESS_COMMIT }}
+          path: .quarkpress
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      # bom is named because no module depends on it, so -am alone would leave it out.
+      - name: Install the QuarkPress modules at the pinned commit
+        working-directory: .quarkpress
+        run: mvn -B -ntp install -DskipTests -pl bom,extensions/rest-wp-v2/deployment,extensions/multisite/deployment,extensions/security/deployment,extensions/posts/deployment,extensions/taxonomy/deployment,extensions/revisions/deployment,extensions/scheduling/deployment,extensions/media/deployment,extensions/media-storage-fs/deployment,extensions/media-image-imageio/deployment,extensions/blocks/deployment,extensions/outbound/deployment -am
+      # enabled by Task 5
+      # - name: Install the admin modules
+      #   run: mvn -B -ntp install -DskipTests -pl runtime,deployment -am
+      # enabled by Task 5
+      # - name: Cache Playwright's browsers
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.cache/ms-playwright
+      #     key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      # enabled by Task 5
+      # - name: Install Playwright's Chromium
+      #   run: mvn -B -ntp -pl integration-tests exec:java -Dexec.classpathScope=test -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium"
+      - name: Build and test
+        run: mvn -B -ntp verify -DtestDb=${{ matrix.db }}
+        # enabled by Task 5, appended to the run above:
+        # bash .github/scripts/require-tests-ran.sh integration-tests/target/surefire-reports/TEST-org.quarkpress.it.admin.AdminFlowsDbTest.xml
+      - name: Check formatting
+        if: matrix.java == 21 && matrix.db == 'postgresql'
+        run: mvn -B -ntp spotless:check

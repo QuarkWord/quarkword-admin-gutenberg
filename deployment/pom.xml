@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.quarkpress</groupId>
+    <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>quarkpress-admin-gutenberg-deployment</artifactId>
+
+  <name>QuarkPress Admin Gutenberg :: Deployment</name>
+
+  <properties>
+    <automatic.module.name>org.quarkpress.admin.deployment</automatic.module.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-admin-gutenberg</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-core-deployment</artifactId>
+    </dependency>
+    <!-- The build item that declares the module's configuration keys. -->
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-core-deployment-spi</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.quarkpress</groupId>
+      <artifactId>quarkpress-rest-wp-v2-deployment</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-vertx-http-deployment</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc-deployment</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit-internal</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- The booting tests (*DbTest) keep QuarkPress's data in PostgreSQL or MySQL, started by Dev Services. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-postgresql-deployment</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-mysql-deployment</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.quarkus</groupId>
+              <artifactId>quarkus-extension-processor</artifactId>
+              <version>${quarkus.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+      <!-- Every test class builds its own application: a fresh JVM per test class keeps one class's applications from
+           filling the code cache for the next, as in the QuarkPress REST module. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <reuseForks>false</reuseForks>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

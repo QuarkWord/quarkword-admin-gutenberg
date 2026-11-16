@@ -1,0 +1,13 @@
+target/
+.superpowers/
+.quarkpress/
+*.class
+*.log
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+.DS_Store

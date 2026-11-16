@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.quarkpress</groupId>
+  <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>QuarkPress Admin Gutenberg :: Parent</name>
+  <description>The QuarkPress admin shell and WordPress's block editor</description>
+  <url>https://quarkpress.org</url>
+  <inceptionYear>2026</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>GNU General Public License v2.0 or later</name>
+      <url>https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <modules>
+    <module>runtime</module>
+    <module>deployment</module>
+  </modules>
+
+  <scm>
+    <connection>scm:git:https://github.com/QuarkPress/quarkpress-admin-gutenberg.git</connection>
+    <developerConnection>scm:git:git@github.com:QuarkPress/quarkpress-admin-gutenberg.git</developerConnection>
+    <url>https://github.com/QuarkPress/quarkpress-admin-gutenberg</url>
+  </scm>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- Platform, the same as the QuarkPress modules this extension builds on. -->
+    <quarkus.platform.version>3.40.1</quarkus.platform.version>
+    <quarkus.version>${quarkus.platform.version}</quarkus.version>
+
+    <!-- QuarkPress is not on Maven Central yet: CI checks the repository out at this commit and installs it first;
+         locally, install the QuarkPress modules at this commit before building (see CONTRIBUTING.md). -->
+    <quarkpress.version>0.1.0-SNAPSHOT</quarkpress.version>
+    <quarkpress.commit>1c61846124459c7e7c15e7be7ad04869f53ee57e</quarkpress.commit>
+
+    <!-- The WordPress release whose built block-editor packages the runtime jar carries, and its SHA-256. -->
+    <wordpress.version>7.1.3</wordpress.version>
+    <wordpress.sha256>TODO-TASK-1</wordpress.sha256>
+    <!-- The OpenID Connect client the admin shell signs in with (npm tarball), and its SHA-256. -->
+    <oidc-client-ts.version>3.5.0</oidc-client-ts.version>
+    <oidc-client-ts.sha256>TODO-TASK-1</oidc-client-ts.sha256>
+
+    <!-- Test libraries. Quarkus 3.40 builds on JUnit 6. -->
+    <junit.version>6.1.3</junit.version>
+    <assertj.version>3.27.7</assertj.version>
+    <playwright.version>1.63.0</playwright.version>
+
+    <!-- Plugins -->
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.6.0</maven-failsafe-plugin.version>
+    <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <spotless.version>3.10.4</spotless.version>
+    <palantir-java-format.version>2.102.0</palantir-java-format.version>
+    <jandex-maven-plugin.version>3.6.0</jandex-maven-plugin.version>
+
+    <!-- Extra JVM flags for test forks. They are here because the maintainers' build host faults
+         under heavy multi-threaded JIT load (C1 only, 8 visible processors); they are not needed
+         for correctness. The larger code cache keeps forks that start many Quarkus apps from running
+         out of it. Override with -Dsurefire.argLine.additional=... -->
+    <surefire.argLine.additional>-XX:TieredStopAtLevel=1 -XX:ActiveProcessorCount=8 -XX:ReservedCodeCacheSize=512m</surefire.argLine.additional>
+    <!-- Database used by container-backed tests: postgresql or mysql. CI runs both. -->
+    <testDb>postgresql</testDb>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.quarkus.platform</groupId>
+        <artifactId>quarkus-bom</artifactId>
+        <version>${quarkus.platform.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.quarkpress</groupId>
+        <artifactId>quarkpress-bom</artifactId>
+        <version>${quarkpress.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+          <configuration>
+            <parameters>true</parameters>
+            <compilerArgs>
+              <arg>-Xlint:all,-processing</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven-surefire-plugin.version}</version>
+          <configuration>
+            <argLine>${surefire.argLine.additional}</argLine>
+            <forkCount>1</forkCount>
+            <reuseForks>true</reuseForks>
+            <systemPropertyVariables>
+              <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+              <maven.home>${maven.home}</maven.home>
+            </systemPropertyVariables>
+            <!-- The test database reaches the tests as an environment variable, not a system property: the
+                 QuarkPress configuration roots own the quarkpress.* keys and reject unknown ones from system
+                 properties, while environment variables are only matched against known keys. -->
+            <environmentVariables>
+              <QUARKPRESS_TEST_DB>${testDb}</QUARKPRESS_TEST_DB>
+            </environmentVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${maven-failsafe-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven-jar-plugin.version}</version>
+          <configuration>
+            <archive>
+              <manifestEntries>
+                <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+              </manifestEntries>
+            </archive>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless.version}</version>
+          <configuration>
+            <java>
+              <palantirJavaFormat>
+                <version>${palantir-java-format.version}</version>
+              </palantirJavaFormat>
+              <removeUnusedImports/>
+            </java>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-extension-maven-plugin</artifactId>
+          <version>${quarkus.version}</version>
+          <executions>
+            <execution>
+              <phase>compile</phase>
+              <goals>
+                <goal>extension-descriptor</goal>
+              </goals>
+              <configuration>
+                <deployment>${project.groupId}:${project.artifactId}-deployment:${project.version}</deployment>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>io.smallrye</groupId>
+          <artifactId>jandex-maven-plugin</artifactId>
+          <version>${jandex-maven-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>make-index</id>
+              <goals>
+                <goal>jandex</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <!-- Native executables are built and tested only in GitHub Actions. -Dnative, -Dquarkus.native.enabled=true
+           and -Dquarkus.package.type=native fail at validate unless the CI environment variable is "true". -->
+      <id>native</id>
+      <activation>
+        <property>
+          <name>native</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>native-only-in-ci</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireEnvironmentVariable>
+                      <variableName>CI</variableName>
+                      <regex>true</regex>
+                      <message>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</message>
+                      <regexMessage>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</regexMessage>
+                    </requireEnvironmentVariable>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>native-enabled-guard</id>
+      <activation>
+        <property>
+          <name>quarkus.native.enabled</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>native-only-in-ci</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireEnvironmentVariable>
+                      <variableName>CI</variableName>
+                      <regex>true</regex>
+                      <message>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</message>
+                      <regexMessage>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</regexMessage>
+                    </requireEnvironmentVariable>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>native-package-guard</id>
+      <activation>
+        <property>
+          <name>quarkus.package.type</name>
+          <value>native</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>native-only-in-ci</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireEnvironmentVariable>
+                      <variableName>CI</variableName>
+                      <regex>true</regex>
+                      <message>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</message>
+                      <regexMessage>Native builds run only in GitHub Actions (CI=true). Run the JVM tests locally.</regexMessage>
+                    </requireEnvironmentVariable>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
