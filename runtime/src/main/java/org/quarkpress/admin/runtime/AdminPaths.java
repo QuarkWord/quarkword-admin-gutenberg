@@ -9,8 +9,9 @@ import java.util.Set;
  * Which request paths the admin screens answer. Under a site path of up to {@value #SITE_SEGMENTS} segments:
  * WordPress's files under {@code wp-includes/} and {@code wp-admin/{css,js,images}/} (WordPress's own layout, whatever
  * the admin path), and below the configured admin path the shell's pages, the editor's pages, and the shell's own files
- * under {@code quarkpress-admin/}. A path with a {@code .} or {@code ..} segment, a segment starting with a dot, an encoded
- * dot ({@code %2e}), a backslash or an empty segment is answered by none of them.
+ * under {@code quarkpress-admin/}; the admin path without its trailing slash names the admin folder, which is
+ * redirected to. A path with a {@code .} or {@code ..} segment, a segment starting with a dot, an encoded dot
+ * ({@code %2e}), a backslash or an empty segment is answered by none of them.
  */
 public final class AdminPaths {
 
@@ -33,7 +34,9 @@ public final class AdminPaths {
         VENDOR_FILE,
         SHELL_PAGE,
         EDITOR_PAGE,
-        CONFIG
+        CONFIG,
+        /** The admin path without its trailing slash: answered with a redirect to the admin folder. */
+        ADMIN_FOLDER
     }
 
     /** A request path's kind and the path that names it in its kind: a file's path, or a page's file name. */
@@ -99,6 +102,9 @@ public final class AdminPaths {
                             && rest.size() > 2
                             && ADMIN_FILE_FOLDERS.contains(rest.get(1)))) {
                 return rest.size() < 2 ? Optional.empty() : file(Kind.WP_FILE, rest);
+            }
+            if (rest.equals(adminSegments)) {
+                return Optional.of(new Target(Kind.ADMIN_FOLDER, ""));
             }
             if (rest.size() > adminSegments.size()
                     && rest.subList(0, adminSegments.size()).equals(adminSegments)) {

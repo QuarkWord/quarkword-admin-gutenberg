@@ -65,7 +65,9 @@ public class AssetFiles {
         return lists().vendor();
     }
 
-    /** The paths of {@code shell/shell-files.txt}: the shell's own files below {@code shell/}, such as {@code app.js}. */
+    /**
+     * The paths of {@code shell/shell-files.txt}: the shell's own files below {@code shell/}, such as {@code app.js}.
+     */
     public Set<String> shellPaths() {
         return lists().shell();
     }
@@ -178,7 +180,8 @@ public class AssetFiles {
         return AssetFiles.class.getClassLoader();
     }
 
-    private static String lowerAscii(String text) {
+    /** The text with {@code A}-{@code Z} lowered, nothing else changed (no locale). */
+    static String lowerAscii(String text) {
         StringBuilder lower = new StringBuilder(text.length());
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);

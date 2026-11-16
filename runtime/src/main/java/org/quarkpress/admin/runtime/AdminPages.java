@@ -46,11 +46,6 @@ public class AdminPages {
         return pages().editor();
     }
 
-    /** The configured admin path, such as {@code /wp-admin/}. */
-    public String adminPath() {
-        return config.path();
-    }
-
     /** Whether both pages are rendered, so that asking for one reads nothing. */
     boolean rendered() {
         return pages != null;

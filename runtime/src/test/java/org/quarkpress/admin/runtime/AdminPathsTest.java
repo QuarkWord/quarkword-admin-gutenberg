@@ -2,6 +2,7 @@ package org.quarkpress.admin.runtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.quarkpress.admin.runtime.AdminPaths.Kind.ADMIN_FOLDER;
 import static org.quarkpress.admin.runtime.AdminPaths.Kind.CONFIG;
 import static org.quarkpress.admin.runtime.AdminPaths.Kind.EDITOR_PAGE;
 import static org.quarkpress.admin.runtime.AdminPaths.Kind.SHELL_FILE;
@@ -49,7 +50,12 @@ class AdminPathsTest {
         for (String page : List.of("post.php", "post-new.php", "revision.php")) {
             assertThat(paths.classify("/wp-admin/" + page)).contains(new Target(EDITOR_PAGE, page));
         }
-        assertThat(paths.classify("/wp-admin")).isEmpty();
+        // the admin folder without its slash is redirected to the folder, as WordPress's own address is
+        assertThat(paths.classify("/wp-admin")).contains(new Target(ADMIN_FOLDER, ""));
+        assertThat(paths.classify("/fv01/wp-admin")).contains(new Target(ADMIN_FOLDER, ""));
+        assertThat(AdminPaths.of("/a/b/").classify("/fv01/a/b")).contains(new Target(ADMIN_FOLDER, ""));
+        assertThat(AdminPaths.of("/a/b/").classify("/a")).isEmpty();
+        assertThat(paths.classify("//wp-admin")).isEmpty();
         assertThat(paths.classify("/wp-admin/edit.php/")).isEmpty();
         assertThat(paths.classify("/wp-admin/nope.php")).isEmpty();
         assertThat(paths.classify("/wp-admin/quarkpress-admin/")).isEmpty();

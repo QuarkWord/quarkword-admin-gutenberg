@@ -111,16 +111,6 @@ public class AssetRegistry {
         return data().version();
     }
 
-    /** The script handles in the order the file registers them. */
-    public List<Asset> scripts() {
-        return List.copyOf(data().scripts().values());
-    }
-
-    /** The style handles in the order the file registers them. */
-    public List<Asset> styles() {
-        return List.copyOf(data().styles().values());
-    }
-
     /** The scripts the editor page enqueues, in enqueue order. */
     public List<String> scriptQueue() {
         return data().scriptQueue();
@@ -230,7 +220,7 @@ public class AssetRegistry {
             String handle = text(node, "handle");
             checkRegistered(scripts, List.of(handle), "an inline script");
             String script = text(node, "script");
-            if (lowerAscii(script).contains("</script")) {
+            if (AssetFiles.lowerAscii(script).contains("</script")) {
                 throw new IllegalStateException(
                         "QuarkPress admin: an inline script of " + handle + " would close its own tag");
             }
@@ -366,14 +356,5 @@ public class AssetRegistry {
             case "after" -> Position.AFTER;
             default -> throw new IllegalStateException("QuarkPress admin: unknown inline position " + position);
         };
-    }
-
-    private static String lowerAscii(String text) {
-        StringBuilder lower = new StringBuilder(text.length());
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            lower.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
-        }
-        return lower.toString();
     }
 }

@@ -24,7 +24,8 @@ import org.quarkpress.admin.runtime.AdminPaths.Target;
  * vendored sign-in client, the shell's own files and its settings ({@code quarkpress-admin/config.json}), each served
  * on its own ({@code GET} and {@code HEAD}). A file
  * request whose query has a {@code ver} parameter may be cached for a year and never revalidated, since a new release
- * changes the parameter; any other answer, the pages included, must be revalidated. No entity tag is sent. A path the
+ * changes the parameter; any other answer, the pages included, must be revalidated. No entity tag is sent. The admin
+ * path without its trailing slash is permanently redirected to the admin folder, as WordPress's address is. A path the
  * admin screens do not answer goes on to the application's other routes.
  */
 @Singleton
@@ -84,7 +85,23 @@ public class AdminRoute {
             // the settings change with the application's configuration, whatever the query says
             case CONFIG ->
                 respond(context, JSON, CACHE_UNVERSIONED, configAnswer.json().getBytes(StandardCharsets.UTF_8));
+            case ADMIN_FOLDER -> redirectToFolder(context);
         }
+    }
+
+    /**
+     * The admin folder's address: the request's raw path with a trailing slash, and its query. The path has no empty
+     * segment (the paths refuse one), so the address stays on this site.
+     */
+    private static void redirectToFolder(RoutingContext context) {
+        String query = context.request().query();
+        String location = context.request().path() + "/" + (query == null ? "" : "?" + query);
+        HttpServerResponse response = context.response();
+        response.setStatusCode(301);
+        response.putHeader(HttpHeaders.LOCATION, location);
+        response.putHeader("X-Content-Type-Options", NOSNIFF);
+        response.putHeader(HttpHeaders.CACHE_CONTROL, CACHE_UNVERSIONED);
+        response.end();
     }
 
     /**
@@ -122,7 +139,10 @@ public class AdminRoute {
 
     private void file(RoutingContext context, String key, String path, String cacheControl, Optional<URL> resource) {
         if (resource.isEmpty()) {
-            context.response().setStatusCode(404).end();
+            context.response()
+                    .setStatusCode(404)
+                    .putHeader("X-Content-Type-Options", NOSNIFF)
+                    .end();
             return;
         }
         byte[] cached = cache.get(key);
