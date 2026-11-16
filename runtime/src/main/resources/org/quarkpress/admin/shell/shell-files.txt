@@ -1,0 +1,11 @@
+# The shell's own files, by their paths below shell/: the only ones its route serves (a folder is never a file).
+# Every file of this folder but this list is named here; AssetFilesTest checks that.
+app.js
+config.js
+auth.js
+api.js
+router.js
+shell.css
+screens/signin.js
+screens/lists.js
+screens/notices.js

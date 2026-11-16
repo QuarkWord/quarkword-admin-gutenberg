@@ -1,14 +1,19 @@
 package org.quarkpress.admin.runtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /** The manifests and the files the build copied into the jar's resources. */
@@ -39,19 +44,71 @@ class AssetFilesTest {
     void onlyListedFilesAreFound() {
         assertThat(files.wordpress("wp-includes/js/nope.js")).isEmpty();
         assertThat(files.wordpress("../wordpress-files.txt")).isEmpty();
-        assertThat(files.vendor("package/dist/umd/oidc-client-ts.js")).isEmpty();
+        assertThat(files.vendor("package/dist/browser/oidc-client-ts.js")).isEmpty();
         assertThat(files.vendor("vendor/../wordpress-files.txt")).isEmpty();
-        assertThat(files.shell("app.js")).isEmpty();
+        assertThat(files.shell("nope.js")).isEmpty();
+        assertThat(files.shell("shell-files.txt")).isEmpty();
         assertThat(files.shell("../wordpress-files.txt")).isEmpty();
         assertThat(files.shell("x/../../wordpress-files.txt")).isEmpty();
     }
 
     @Test
     void aShellFolderIsNeverAFile() {
-        // the test resources hold shell/test-folder/probe.js
-        assertThat(files.shell("test-folder/probe.js")).isPresent();
+        // the test resources hold shell/test-folder/probe.js, which the class loader finds but the list does not name
+        assertThat(AssetFiles.class.getClassLoader().getResource(AssetFiles.ROOT + "shell/test-folder/probe.js"))
+                .isNotNull();
+        assertThat(files.shell("test-folder/probe.js")).isEmpty();
         assertThat(files.shell("test-folder")).isEmpty();
         assertThat(files.shell("test-folder/")).isEmpty();
+        // the shell's own folder named like a file
+        assertThat(files.shell("screens")).isEmpty();
+    }
+
+    @Test
+    void aShellListNamingAnythingButAServedFileStopsTheLoad() {
+        assertThat(AssetFiles.shellTargets(Set.of("app.js", "screens/lists.js", "notes.txt")))
+                .hasSize(3);
+        for (String bad :
+                List.of("../x.js", "a//b.js", ".hidden.js", "a/.b/c.js", "a\\b.js", "notes.bin", "folder/", "")) {
+            assertThatThrownBy(() -> AssetFiles.shellTargets(Set.of(bad)))
+                    .as(bad)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("QuarkPress admin: shell/shell-files.txt names " + bad
+                            + ", which is no file the shell serves");
+        }
+    }
+
+    @Test
+    void everyShellFileIsListedAndInTheJar() throws IOException {
+        Path folder = Path.of("src/main/resources", AssetFiles.ROOT, "shell");
+        List<String> onDisk = new ArrayList<>();
+        try (Stream<Path> walk = Files.walk(folder)) {
+            walk.filter(Files::isRegularFile)
+                    .map(file -> folder.relativize(file).toString().replace('\\', '/'))
+                    .filter(name -> !name.equals("shell-files.txt"))
+                    .forEach(onDisk::add);
+        }
+        assertThat(files.shellPaths()).containsExactlyInAnyOrderElementsOf(onDisk);
+        assertThat(files.shellPaths()).contains("app.js", "shell.css", "screens/lists.js");
+        for (String path : files.shellPaths()) {
+            assertThat(files.shell(path)).as(path).isPresent();
+            assertThat(AssetFiles.contentType(path)).as(path).isNotEqualTo("application/octet-stream");
+        }
+    }
+
+    @Test
+    void theShellsBrowserFilesCarryTheLicenceLine() throws IOException {
+        for (String path : files.shellPaths()) {
+            String first;
+            try (InputStream in = files.shell(path).orElseThrow().openStream()) {
+                String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                first = text.substring(0, text.indexOf('\n'));
+            }
+            String expected = path.endsWith(".css")
+                    ? "/* SPDX-License-Identifier: GPL-2.0-or-later */"
+                    : "// SPDX-License-Identifier: GPL-2.0-or-later";
+            assertThat(first).as(path).isEqualTo(expected);
+        }
     }
 
     @Test

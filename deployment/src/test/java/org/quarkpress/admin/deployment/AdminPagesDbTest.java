@@ -63,6 +63,10 @@ class AdminPagesDbTest {
         int shell = page.indexOf("<script type=\"module\" src=\"quarkpress-admin/editor.js\"></script>");
         assertThat(shell).isGreaterThan(tinymce);
         assertThat(page.indexOf("<script", shell + 1)).isEqualTo(-1);
+        // the sign-in client's classic script defines its global before the shell's module runs
+        assertThat(page.indexOf("<script src=\"quarkpress-admin/vendor/oidc-client-ts.js\"></script>"))
+                .isGreaterThan(tinymce)
+                .isLessThan(shell);
 
         assertThat(page)
                 .contains("<script src=\"../wp-includes/js/dist/hooks.min.js?ver=")
@@ -161,8 +165,11 @@ class AdminPagesDbTest {
                 .contains("<div id=\"qp-notices\" role=\"status\" aria-live=\"polite\">")
                 .contains("<link rel=\"stylesheet\" href=\"quarkpress-admin/shell.css\">")
                 .endsWith("<script type=\"module\" src=\"quarkpress-admin/app.js\"></script>\n</body>\n</html>\n");
-        assertThat(page.indexOf("<script"))
-                .isEqualTo(page.indexOf("<script type=\"module\" src=\"quarkpress-admin/app.js\""));
+        // the sign-in client's classic script first, then the shell's module, and nothing else
+        int client = page.indexOf("<script src=\"quarkpress-admin/vendor/oidc-client-ts.js\"></script>");
+        int module = page.indexOf("<script type=\"module\" src=\"quarkpress-admin/app.js\"");
+        assertThat(page.indexOf("<script")).isEqualTo(client).isLessThan(module);
+        assertThat(page.indexOf("<script", client + 1)).isEqualTo(module);
     }
 
     @Test

@@ -21,7 +21,8 @@ import org.quarkpress.admin.runtime.AdminPaths.Target;
 
 /**
  * Answers the admin screens' requests under every site: the shell page and the editor page, WordPress's files, the
- * vendored sign-in client and the shell's own files, each served on its own ({@code GET} and {@code HEAD}). A file
+ * vendored sign-in client, the shell's own files and its settings ({@code quarkpress-admin/config.json}), each served
+ * on its own ({@code GET} and {@code HEAD}). A file
  * request whose query has a {@code ver} parameter may be cached for a year and never revalidated, since a new release
  * changes the parameter; any other answer, the pages included, must be revalidated. No entity tag is sent. A path the
  * admin screens do not answer goes on to the application's other routes.
@@ -37,6 +38,8 @@ public class AdminRoute {
 
     static final String HTML = "text/html; charset=utf-8";
 
+    static final String JSON = "application/json";
+
     static final String FRAME_OPTIONS = "SAMEORIGIN";
 
     static final String FRAME_ANCESTORS = "frame-ancestors 'self'";
@@ -51,6 +54,9 @@ public class AdminRoute {
 
     @Inject
     AdminPages pages;
+
+    @Inject
+    AdminConfigAnswer configAnswer;
 
     /** The bytes of each file served so far, by its kind and path; the shipped set is about ten megabytes. */
     private final ConcurrentMap<String, byte[]> cache = new ConcurrentHashMap<>();
@@ -75,7 +81,9 @@ public class AdminRoute {
             case WP_FILE -> file(context, "wp:" + path, path, cacheControl, files.wordpress(path));
             case VENDOR_FILE -> file(context, "vendor:" + path, path, cacheControl, files.vendor(path));
             case SHELL_FILE -> file(context, "shell:" + path, path, cacheControl, files.shell(path));
-            default -> context.response().setStatusCode(501).end();
+            // the settings change with the application's configuration, whatever the query says
+            case CONFIG ->
+                respond(context, JSON, CACHE_UNVERSIONED, configAnswer.json().getBytes(StandardCharsets.UTF_8));
         }
     }
 

@@ -195,6 +195,7 @@ class AssetRegistryTest {
         assertThat(registry.importMap().get("imports").size()).isEqualTo(2);
         // insertion-ordered, as the file lists them
         assertThat(registry.scriptsByHandle().keySet()).first().isEqualTo("react");
+        assertThat(registry.version()).isEqualTo("7.1.3");
     }
 
     @Test

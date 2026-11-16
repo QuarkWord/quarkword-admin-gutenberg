@@ -15,9 +15,10 @@ import org.quarkpress.admin.runtime.AssetRegistry.Position;
  * Writes the admin screens' two HTML pages: the shell page (the lists, sign-in and every screen but the editor) and the
  * editor page, which adds WordPress's stylesheets in the head and, after the markup, WordPress's scripts in the order
  * WordPress prints them: the head group, the import map, the editor's script module, the footer group (each script
- * with its inline scripts around it, an alias printing only those), then the shell's own editor module. Neither page
- * depends on a post or a user; WordPress's files are named relative to the page, through the prefix that climbs from
- * the admin path to the site's root, and the shell's own files relative to the admin path.
+ * with its inline scripts around it, an alias printing only those), then the shell's own editor module. Both pages
+ * load the vendored sign-in client with a classic script right before the shell's module, which reads its global.
+ * Neither page depends on a post or a user; WordPress's files are named relative to the page, through the prefix that
+ * climbs from the admin path to the site's root, and the shell's own files relative to the admin path.
  */
 public final class PageRenderer {
 
@@ -31,6 +32,10 @@ public final class PageRenderer {
     static final String TINYMCE_BASE = "%TINYMCE_BASE%";
 
     private static final String SPDX = "<!-- SPDX-License-Identifier: GPL-2.0-or-later -->";
+
+    /** The vendored sign-in client, whose classic script defines the global {@code oidc} the shell's modules use. */
+    private static final String SIGN_IN_CLIENT =
+            "<script src=\"quarkpress-admin/vendor/oidc-client-ts.js\"></script>\n";
 
     private static final String EDITOR_BODY_CLASS =
             "wp-admin wp-core-ui js is-fullscreen-mode block-editor-page admin-color-modern locale-en-us";
@@ -62,6 +67,7 @@ public final class PageRenderer {
         html.append("</head>\n");
         html.append("<body class=\"qp-admin\">\n");
         container(html, false);
+        html.append(SIGN_IN_CLIENT);
         html.append("<script type=\"module\" src=\"quarkpress-admin/app.js\"></script>\n");
         html.append("</body>\n</html>\n");
         return html.toString();
@@ -111,6 +117,7 @@ public final class PageRenderer {
         for (Asset script : scripts.footer()) {
             script(html, relativePrefix, script);
         }
+        html.append(SIGN_IN_CLIENT);
         html.append("<script type=\"module\" src=\"quarkpress-admin/editor.js\"></script>\n");
         html.append("</body>\n</html>\n");
         return html.toString();

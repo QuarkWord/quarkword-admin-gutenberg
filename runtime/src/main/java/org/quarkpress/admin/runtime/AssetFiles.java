@@ -15,9 +15,9 @@ import java.util.Set;
 /**
  * The files the jar carries under {@code org/quarkpress/admin/}: WordPress's files under {@code wp/} (those
  * {@code wordpress-files.txt} lists), the vendored sign-in client under {@code vendor/} (those
- * {@code oidc-client-ts-files.txt} lists), and the shell's own files under {@code shell/}. A file is found only by a
- * path its list names (the shell's: any path of plain segments with a served type's extension), so no request reaches
- * another resource.
+ * {@code oidc-client-ts-files.txt} lists), and the shell's own files under {@code shell/} (those
+ * {@code shell/shell-files.txt} lists). A file is found only by a path its list names, so no request reaches another
+ * resource, nor a folder, which the class loader would also find.
  */
 @ApplicationScoped
 public class AssetFiles {
@@ -48,7 +48,7 @@ public class AssetFiles {
     private volatile Lists lists;
 
     /** The two lists' targets, read once. */
-    private record Lists(Set<String> wordpress, Set<String> vendor) {}
+    private record Lists(Set<String> wordpress, Set<String> vendor, Set<String> shell) {}
 
     /**
      * The targets of {@code wordpress-files.txt}: paths below {@code wp/}, such as
@@ -63,6 +63,11 @@ public class AssetFiles {
         return lists().vendor();
     }
 
+    /** The paths of {@code shell/shell-files.txt}: the shell's own files below {@code shell/}, such as {@code app.js}. */
+    public Set<String> shellPaths() {
+        return lists().shell();
+    }
+
     /** A WordPress file the list names. */
     public Optional<URL> wordpress(String path) {
         return wordpressPaths().contains(path) ? resource("wp/" + path) : Optional.empty();
@@ -73,14 +78,9 @@ public class AssetFiles {
         return vendorPaths().contains(path) ? resource(path) : Optional.empty();
     }
 
-    /**
-     * One of the shell's own files, such as {@code screens/lists.js}: a path whose name has an extension of a served
-     * type, so that a folder, which the class loader also finds, is never answered as a file.
-     */
+    /** One of the shell's own files the list names, such as {@code screens/lists.js}. */
     public Optional<URL> shell(String path) {
-        return plainPath(path) && !contentType(path).equals(OCTET_STREAM)
-                ? resource("shell/" + path)
-                : Optional.empty();
+        return shellPaths().contains(path) ? resource("shell/" + path) : Optional.empty();
     }
 
     /** The content type of a file, by its extension. */
@@ -97,7 +97,10 @@ public class AssetFiles {
     private Lists lists() {
         Lists loaded = lists;
         if (loaded == null) {
-            loaded = new Lists(targets("wordpress-files.txt"), targets("oidc-client-ts-files.txt"));
+            loaded = new Lists(
+                    targets("wordpress-files.txt"),
+                    targets("oidc-client-ts-files.txt"),
+                    shellTargets(targets("shell/shell-files.txt")));
             lists = loaded;
         }
         return loaded;
@@ -130,6 +133,20 @@ public class AssetFiles {
             targets.add(arrow < 0 ? line : line.substring(arrow + 2).strip());
         }
         return Collections.unmodifiableSet(targets);
+    }
+
+    /**
+     * The shell's list, checked: each path is relative, of plain segments, with the extension of a served type; a list
+     * that names anything else stops the start.
+     */
+    static Set<String> shellTargets(Set<String> paths) {
+        for (String path : paths) {
+            if (!plainPath(path) || contentType(path).equals(OCTET_STREAM)) {
+                throw new IllegalStateException("QuarkPress admin: shell/shell-files.txt names " + path
+                        + ", which is no file the shell serves");
+            }
+        }
+        return paths;
     }
 
     /** A relative path of non-empty segments, none starting with a dot, no backslash. */

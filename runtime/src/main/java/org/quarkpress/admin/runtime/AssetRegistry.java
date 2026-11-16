@@ -68,6 +68,7 @@ public class AssetRegistry {
     public record Inline(String handle, Position position, String script) {}
 
     private record Data(
+            String version,
             Map<String, Asset> scripts,
             Map<String, Asset> styles,
             List<String> scriptQueue,
@@ -103,6 +104,11 @@ public class AssetRegistry {
     /** A registry from the text of a {@code wordpress-handles.json}. */
     static AssetRegistry parse(String json) {
         return new AssetRegistry(build(json));
+    }
+
+    /** The WordPress release the handles come from, such as {@code 7.1.3}. */
+    public String version() {
+        return data().version();
     }
 
     /** The script handles in the order the file registers them. */
@@ -251,6 +257,7 @@ public class AssetRegistry {
                 false);
 
         return new Data(
+                text(root, "version"),
                 Collections.unmodifiableMap(scripts),
                 Collections.unmodifiableMap(styles),
                 scriptQueue,
