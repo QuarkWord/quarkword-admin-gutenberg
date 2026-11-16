@@ -42,7 +42,8 @@ import org.junit.jupiter.api.Test;
  * in a subdirectory, the pages and media lists; and the editor screen: WordPress's block editor by role, a new post
  * with an upload, autosave, schedule and publish, pages, synced patterns, preloads, the media modal, the token's
  * retry and its failed renewal, omitted routes, the Classic block, missing, trashed and revision addresses, the site's
- * date settings. Each flow runs as one user in a browser context of its own and waits on requests, answers, the DOM,
+ * date settings, the post lock, draft and published previews through the preview session and its renewal, and trash
+ * from the editor. Each flow runs as one user in a browser context of its own and waits on requests, answers, the DOM,
  * the shell's or the editor's state, never on time; no page may log an error but those a flow expects and takes, and
  * the 404s of the routes the editor route leaves out.
  */
@@ -1489,6 +1490,8 @@ class AdminFlowsDbTest {
             });
             page.navigate(editUrl("/fv04/", post));
             awaitMounted(page);
+            // the preview session's cookie belongs to the site's path
+            assertThat(previewCookie(context).path).isEqualTo("/fv04/");
 
             // WordPress answers any signed-in user's own record, but refuses its writes on a site it is no member of
             Response write = page.waitForResponse(
@@ -1866,6 +1869,342 @@ class AdminFlowsDbTest {
             Request refresh = page.waitForRequest(request -> isLock(request, "PUT", post), () -> {});
             assertThat(refresh.response().text()).contains("\"new_lock\":");
             page.waitForFunction("token => quarkpressAdmin.locks.state.releaseToken !== token", token);
+        }
+    }
+
+    /** Whether the request is a POST of the preview session route of the main site. */
+    private static boolean isPreviewSession(Request request) {
+        return request.method().equals("POST") && request.url().endsWith("/wp-json/quarkpress/v1/preview/session");
+    }
+
+    /** The context's preview session cookie, or null. */
+    private static com.microsoft.playwright.options.Cookie previewCookie(BrowserContext context) {
+        return context.cookies().stream()
+                .filter(cookie -> cookie.name.equals("quarkpress_preview"))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /** Opens the preview from the header's preview menu, as a user does, and answers the window once it has loaded. */
+    private static Page openPreview(Page page) {
+        Page popup = page.waitForPopup(() -> {
+            page.locator(".editor-preview-dropdown__toggle").first().click();
+            page.getByRole(AriaRole.MENUITEM, new Page.GetByRoleOptions().setName("Preview in new tab"))
+                    .first()
+                    .click();
+        });
+        popup.waitForURL(url -> !url.startsWith("about:"));
+        popup.waitForLoadState();
+        return popup;
+    }
+
+    @Test
+    void aDraftPreviewRendersForItsAuthorThroughTheSessionCookie() {
+        long post = setup.post("bob", "post", "draft", "Preview draft " + token());
+        String url;
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = listAs(context, "bob");
+            Response opened = page.waitForResponse(
+                    response -> isPreviewSession(response.request()), () -> page.navigate(editUrl("/", post)));
+            assertThat(opened.status()).isEqualTo(200);
+            assertThat(opened.text()).matches("^\\{\"expires_in\":\\d+}$");
+            awaitMounted(page);
+            // the session is opened before the editor mounts, and its cookie is the site's, out of the page's reach
+            com.microsoft.playwright.options.Cookie cookie = previewCookie(context);
+            assertThat(cookie).isNotNull();
+            assertThat(cookie.path).isEqualTo("/");
+            assertThat(cookie.httpOnly).isTrue();
+            assertThat(cookie.sameSite).isEqualTo(com.microsoft.playwright.options.SameSiteAttribute.LAX);
+            assertThat(page.evaluate("() => document.cookie.includes('quarkpress_preview')"))
+                    .isEqualTo(false);
+
+            page.evaluate("() => wp.data.dispatch('core/block-editor').insertBlocks("
+                    + "wp.blocks.createBlock('core/paragraph', { content: 'Previewed text' }))");
+            Page popup = openPreview(page);
+            url = popup.url();
+            assertThat(url)
+                    .startsWith(browsers.root())
+                    .contains("p=" + post)
+                    .contains("preview=true")
+                    .doesNotContain("preview_nonce")
+                    .doesNotContain("preview_id")
+                    .doesNotContain("access_token")
+                    .doesNotContain("code=");
+            assertThat(popup.content()).contains("Previewed text");
+            // a draft is saved, not autosaved, before its preview
+            assertThat(setup.rest("bob", "/", "wp/v2/posts/" + post + "?context=edit")
+                            .getString("content.raw"))
+                    .contains("Previewed text");
+        }
+
+        try (BrowserContext context = browsers.context("anonymous")) {
+            Page page = context.newPage();
+            Response answer = page.navigate(url);
+            assertThat(answer.status()).isEqualTo(404);
+            assertThat(page.content()).doesNotContain("Previewed text");
+        }
+        // the anonymous visitor's 404 is the only error
+        assertThat(browsers.takeErrors())
+                .allSatisfy(error -> assertThat(error)
+                        .startsWith("anonymous console:")
+                        .contains("the server responded with a status of 404"));
+    }
+
+    @Test
+    void aPublishedPostPreviewCarriesTheTokenAndShowsTheEdit() throws IOException {
+        Path png = Files.createDirectories(Path.of("target", "flow-files")).resolve("qp-thumb-" + token() + ".png");
+        ImageIO.write(new BufferedImage(64, 48, BufferedImage.TYPE_INT_RGB), "png", png.toFile());
+        long thumbnail = setup.upload("bob", png);
+        long post = setup.post(
+                "bob",
+                "post",
+                "publish",
+                "Preview published " + token(),
+                "<!-- wp:paragraph -->\n" + "<p>Saved for preview</p>\n<!-- /wp:paragraph -->",
+                null);
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            page.evaluate("() => { const block = wp.data.select('core/block-editor').getBlocks()"
+                    + ".find(b => b.name === 'core/paragraph');"
+                    + " wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId,"
+                    + " { content: 'Edited for preview' }); }");
+            page.evaluate(
+                    "id => wp.data.dispatch('core/editor').editPost({ featured_media: id })",
+                    Math.toIntExact(thumbnail));
+            AtomicReference<Page> popup = new AtomicReference<>();
+            Response autosaved = page.waitForResponse(
+                    response -> response.url().contains("/wp-json/wp/v2/posts/" + post + "/autosaves")
+                            && response.request().method().equals("POST"),
+                    () -> popup.set(openPreview(page)));
+            assertThat(autosaved.status()).isEqualTo(200);
+            String url = popup.get().url();
+            assertThat(url)
+                    .startsWith(browsers.root())
+                    .contains("preview_id=" + post)
+                    .containsPattern("preview_nonce=[^&]+")
+                    .contains("preview=true")
+                    .contains("_thumbnail_id=" + thumbnail)
+                    .doesNotContain("access_token")
+                    .doesNotContain("code=");
+            assertThat(popup.get().content()).contains("Edited for preview").doesNotContain("Saved for preview");
+            // the published post itself is unchanged
+            assertThat(setup.rest("bob", "/", "wp/v2/posts/" + post + "?context=edit")
+                            .getString("content.raw"))
+                    .contains("Saved for preview");
+        }
+    }
+
+    /** Whether the request is the editor's trashing of the post: api-fetch sends a DELETE as a POST with the override. */
+    private static boolean isTrash(Request request, long id) {
+        return request.method().equals("POST")
+                && request.url().contains("/wp-json/wp/v2/posts/" + id + "?")
+                && "DELETE".equals(request.headers().get("x-http-method-override"));
+    }
+
+    @Test
+    void trashFromTheEditorReturnsToTheListWithUndo() {
+        String title = "Trash from the editor " + token();
+        long post = setup.post("bob", "post", "draft", title);
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            page.evaluate("() => wp.data.dispatch('core/edit-post').openGeneralSidebar('edit-post/document')");
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Move to trash"))
+                    .first()
+                    .click();
+            Locator confirm = page.getByRole(AriaRole.DIALOG)
+                    .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Move to trash"));
+            AtomicReference<Response> deleted = new AtomicReference<>();
+            // the editor's own action: dispatching core/editor's trashPost alone trashes but leaves the page where it
+            // is; the action confirmed in the editor's dialog trashes and then leaves for the list
+            Request exit = page.waitForRequest(
+                    request -> request.isNavigationRequest()
+                            && request.url()
+                                    .equals(browsers.adminUrl("/") + "edit.php?trashed=1&post_type=post&ids=" + post),
+                    () -> deleted.set(
+                            page.waitForResponse(response -> isTrash(response.request(), post), confirm::click)));
+            assertThat(deleted.get().status()).isEqualTo(200);
+            assertThat(exit.frame()).isEqualTo(page.mainFrame());
+            assertThat(setup.statusOf("bob", "posts", post)).contains("trash");
+
+            Locator notices = page.locator("#qp-notices");
+            notices.getByText("1 post moved to the Trash.").waitFor();
+            page.locator("#qp-main[aria-busy=false]").waitFor();
+            assertThat(heading(page).textContent()).isEqualTo("Posts");
+            Response undone = page.waitForResponse(
+                    response -> response.url().endsWith("/wp-json/wp/v2/posts/" + post)
+                            && response.request().method().equals("PUT"),
+                    () -> notices.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Undo"))
+                            .click());
+            assertThat(undone.status()).isEqualTo(200);
+            notices.getByText("1 post restored from the Trash.").waitFor();
+            assertThat(setup.statusOf("bob", "posts", post)).contains("draft");
+            row(page, title).waitFor();
+        }
+    }
+
+    @Test
+    void theSessionIsRenewedBeforeExpiry() {
+        long post = setup.post("bob", "post", "draft", "Renewed " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            String first = previewCookie(context).value;
+
+            Response renewed = page.waitForResponse(
+                    response -> isPreviewSession(response.request()),
+                    () -> page.evaluate("() => quarkpressAdmin.preview.renew()"));
+            assertThat(renewed.status()).isEqualTo(200);
+            // Playwright leaves Set-Cookie out of headers()
+            assertThat(renewed.headerValue("set-cookie")).startsWith("quarkpress_preview=");
+            String second = previewCookie(context).value;
+            assertThat(second).isNotEmpty().isNotEqualTo(first);
+
+            // the cookie names the viewer of the front end only: the REST API never takes it as a credential
+            AtomicReference<Object> status = new AtomicReference<>();
+            Request plain = page.waitForRequest(
+                    request -> request.url().endsWith("/wp-json/wp/v2/users/me?context=edit"),
+                    () -> status.set(page.evaluate("() => fetch('/wp-json/wp/v2/users/me?context=edit',"
+                            + " { credentials: 'same-origin' }).then(r => r.status)")));
+            assertThat(plain.headerValue("cookie")).contains("quarkpress_preview=" + second);
+            assertThat(plain.headerValue("authorization")).isNull();
+            assertThat(status.get()).isEqualTo(401);
+            takeExpectedFailures(401);
+        }
+    }
+
+    @Test
+    void theRenewalIsScheduledFromTheSessionsLifetime() {
+        long post = setup.post("bob", "post", "draft", "Renewed by the timer " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            // this flow's first session is answered as living two seconds (and sets no cookie): the shell renews it
+            // when 80% of that has passed; the renewal reaches the application
+            // both are observed from handlers set before the editor opens, so the renewal is seen whenever it goes
+            AtomicInteger answered = new AtomicInteger();
+            java.util.concurrent.CompletableFuture<Response> renewal = new java.util.concurrent.CompletableFuture<>();
+            context.route("**/wp-json/quarkpress/v1/preview/session", route -> {
+                if (answered.getAndIncrement() > 0) {
+                    route.resume();
+                    return;
+                }
+                route.fulfill(new Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("application/json")
+                        .setBody("{\"expires_in\":2}"));
+            });
+            context.onResponse(response -> {
+                if (isPreviewSession(response.request()) && response.headerValue("set-cookie") != null) {
+                    renewal.complete(response);
+                }
+            });
+            Page page = editorAs(context, "bob", post);
+
+            // no call: the shell's own timer sends the renewal
+            page.waitForCondition(renewal::isDone);
+            Response renewed = renewal.join();
+            assertThat(renewed.status()).isEqualTo(200);
+            assertThat(renewed.headerValue("set-cookie")).startsWith("quarkpress_preview=");
+            assertThat(answered.get()).isGreaterThanOrEqualTo(2);
+            assertThat(previewCookie(context)).isNotNull();
+        }
+    }
+
+    @Test
+    void aRefusedRenewalShowsTheSessionOverlay() {
+        long post = setup.post("bob", "post", "draft", "Refused renewal " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            AtomicInteger refused = new AtomicInteger();
+            page.route("**/wp-json/quarkpress/v1/preview/session", route -> {
+                refused.incrementAndGet();
+                route.fulfill(new Route.FulfillOptions()
+                        .setStatus(401)
+                        .setContentType("application/json")
+                        .setBody(NOT_LOGGED_IN));
+            });
+
+            page.evaluate("() => quarkpressAdmin.preview.renew().catch(() => {})");
+
+            page.getByText("Your session has expired. You can log in again from this page or go to the login page.")
+                    .waitFor();
+            // refused once, renewed the token, refused again: then no more
+            assertThat(refused.get()).isEqualTo(2);
+            assertThat(page.evaluate("() => wp.data.select('core/editor').isPostSavingLocked()"))
+                    .isEqualTo(true);
+            takeExpectedFailures(401);
+        }
+    }
+
+    @Test
+    void loggingOutEndsThePreviews() {
+        long post = setup.post(
+                "bob",
+                "post",
+                "draft",
+                "Logged out " + token(),
+                "<!-- wp:paragraph -->\n" + "<p>Seen before logging out</p>\n<!-- /wp:paragraph -->",
+                null);
+        String url = browsers.root() + "?p=" + post + "&preview=true";
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            Page before = context.newPage();
+            assertThat(before.navigate(url).status()).isEqualTo(200);
+            assertThat(before.content()).contains("Seen before logging out");
+            before.close();
+
+            page.navigate(browsers.adminUrl("/"));
+            page.locator("#qp-main[aria-busy=false]").waitFor();
+            Response closed = page.waitForResponse(
+                    response -> response.url().endsWith("/wp-json/quarkpress/v1/preview/session")
+                            && response.request().method().equals("DELETE"),
+                    () -> page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Log Out"))
+                            .click());
+            assertThat(closed.status()).isEqualTo(200);
+            assertThat(closed.request().headerValue("authorization")).startsWith("Bearer ");
+
+            Page after = context.newPage();
+            assertThat(after.navigate(url).status()).isEqualTo(404);
+            assertThat(after.content()).doesNotContain("Seen before logging out");
+        }
+        // the logged-out preview's 404 is the only error
+        assertThat(browsers.takeErrors())
+                .allSatisfy(error -> assertThat(error).contains("the server responded with a status of 404"));
+    }
+
+    @Test
+    void aForbiddenRenewalStopsAndAServerErrorIsRetried() {
+        long post = setup.post("bob", "post", "draft", "Renewal refusals " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            assertThat(page.evaluate("() => quarkpressAdmin.preview.scheduled()"))
+                    .isEqualTo(true);
+            AtomicInteger status = new AtomicInteger(500);
+            page.route(
+                    "**/wp-json/quarkpress/v1/preview/session",
+                    route -> route.fulfill(new Route.FulfillOptions()
+                            .setStatus(status.get())
+                            .setContentType("application/json")
+                            .setBody(
+                                    "{\"code\":\"rest_forbidden\",\"message\":\"Sorry, you are not allowed to do that.\","
+                                            + "\"data\":{\"status\":" + status.get() + "}}")));
+
+            // a server error is passing: tried again later
+            page.evaluate("() => quarkpressAdmin.preview.renew().catch(() => {})");
+            assertThat(page.evaluate("() => quarkpressAdmin.preview.scheduled()"))
+                    .isEqualTo(true);
+            // a refusal is not: no more renewals, and no session overlay (the user is still signed in)
+            status.set(403);
+            page.evaluate("() => quarkpressAdmin.preview.renew().catch(() => {})");
+            assertThat(page.evaluate("() => quarkpressAdmin.preview.scheduled()"))
+                    .isEqualTo(false);
+            assertThat(page.locator("#qp-overlay").count()).isZero();
+            takeExpectedFailures(500, 403);
         }
     }
 
