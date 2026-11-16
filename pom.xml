@@ -43,7 +43,7 @@
     <!-- QuarkPress is not on Maven Central yet: CI checks the repository out at this commit and installs it first;
          locally, install the QuarkPress modules at this commit before building (see CONTRIBUTING.md). -->
     <quarkpress.version>0.1.0-SNAPSHOT</quarkpress.version>
-    <quarkpress.commit>1c61846124459c7e7c15e7be7ad04869f53ee57e</quarkpress.commit>
+    <quarkpress.commit>34fba8446472e306870179447176e51499b4e080</quarkpress.commit>
 
     <!-- The WordPress release whose built block-editor packages the runtime jar carries, and its SHA-256. -->
     <wordpress.version>7.1.3</wordpress.version>
