@@ -15,6 +15,10 @@
 
   <properties>
     <automatic.module.name>org.quarkpress.admin</automatic.module.name>
+    <!-- Where the build keeps the two downloads between builds, and the program that copies the listed files. -->
+    <admin.download.cache>${user.home}/.m2/repository/.cache/quarkpress-admin</admin.download.cache>
+    <admin.copier>${project.basedir}/src/build/org/quarkpress/admin/build/AssetCopier.java</admin.copier>
+    <admin.resources>${project.build.outputDirectory}/org/quarkpress/admin</admin.resources>
   </properties>
 
   <dependencies>
@@ -55,6 +59,119 @@
 
   <build>
     <plugins>
+      <!-- The pinned WordPress release and oidc-client-ts tarball, each checked against its SHA-256. Declared before
+           the copier: Maven runs one phase's executions in declaration order. -->
+      <plugin>
+        <groupId>com.googlecode.maven-download-plugin</groupId>
+        <artifactId>download-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>download-wordpress</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>wget</goal>
+            </goals>
+            <configuration>
+              <uri>https://wordpress.org/wordpress-${wordpress.version}.zip</uri>
+              <sha256>${wordpress.sha256}</sha256>
+              <outputDirectory>${project.build.directory}/downloads</outputDirectory>
+              <cacheDirectory>${admin.download.cache}</cacheDirectory>
+            </configuration>
+          </execution>
+          <execution>
+            <id>download-oidc-client-ts</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>wget</goal>
+            </goals>
+            <configuration>
+              <uri>https://registry.npmjs.org/oidc-client-ts/-/oidc-client-ts-${oidc-client-ts.version}.tgz</uri>
+              <sha256>${oidc-client-ts.sha256}</sha256>
+              <unpack>true</unpack>
+              <outputDirectory>${project.build.directory}/downloads/oidc-client-ts</outputDirectory>
+              <cacheDirectory>${admin.download.cache}</cacheDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Copies the files the lists name into the jar's resources; the WordPress zip's digest is checked again first.
+           A missing file or another digest fails the build before anything is copied. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-wordpress-files</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <arguments>
+                <argument>--source</argument>
+                <argument>21</argument>
+                <argument>${admin.copier}</argument>
+                <argument>${project.basedir}/src/main/resources/org/quarkpress/admin/wordpress-files.txt</argument>
+                <argument>${project.build.directory}/downloads/wordpress-${wordpress.version}.zip</argument>
+                <argument>${admin.resources}/wp</argument>
+                <argument>${wordpress.sha256}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-oidc-client-ts-files</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <arguments>
+                <argument>--source</argument>
+                <argument>21</argument>
+                <argument>${admin.copier}</argument>
+                <argument>${project.basedir}/src/main/resources/org/quarkpress/admin/oidc-client-ts-files.txt</argument>
+                <argument>${project.build.directory}/downloads/oidc-client-ts</argument>
+                <argument>${admin.resources}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- The copier is a test source too, so that its tests call it directly. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>add-copier-test-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/build</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <!-- spotless:apply and spotless:check also cover the build-time copier. -->
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <configuration>
+          <java>
+            <includes>
+              <include>src/main/java/**/*.java</include>
+              <include>src/test/java/**/*.java</include>
+              <include>src/build/**/*.java</include>
+            </includes>
+          </java>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

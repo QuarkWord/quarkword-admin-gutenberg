@@ -1,0 +1,4 @@
+# The oidc-client-ts files the runtime jar carries, copied at build time from the pinned npm tarball (paths below the
+# unpacked tarball) into org/quarkpress/admin/. A line "a -> b" copies a to b. The tarball has no NOTICE file.
+package/dist/umd/oidc-client-ts.js -> vendor/oidc-client-ts.js
+package/LICENSE -> vendor/oidc-client-ts.LICENSE
