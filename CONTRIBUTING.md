@@ -24,9 +24,37 @@ git checkout <quarkpress.commit>
 mvn install -DskipTests -pl bom,extensions/rest-wp-v2/deployment,extensions/multisite/deployment,extensions/security/deployment,extensions/posts/deployment,extensions/taxonomy/deployment,extensions/revisions/deployment,extensions/scheduling/deployment,extensions/media/deployment,extensions/media-storage-fs/deployment,extensions/media-image-imageio/deployment,extensions/blocks/deployment,extensions/outbound/deployment -am
 ```
 
-Then build this repository with `mvn verify` (`-DtestDb=mysql` runs the database tests on MySQL instead of
-PostgreSQL). Format with `mvn spotless:apply`; CI runs `spotless:check`. Native executables are built and tested
-only in GitHub Actions.
+Then build this repository in the order CI does. The test application resolves the admin modules from the local
+repository, and the browser flows run in a Maven run of their own, never beside the extension's database tests:
+
+```bash
+# install the admin modules for the test application
+mvn install -DskipTests -pl runtime,deployment -am
+# once per Playwright version: the Chromium build Playwright for Java drives
+mvn -pl integration-tests exec:java -Dexec.classpathScope=test \
+  -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
+# the extension: runtime unit tests and the deployment *DbTests (PostgreSQL by default)
+mvn verify -pl runtime,deployment
+# the browser flows (AdminFlowsDbTest) and the smoke flow against the packaged application (AdminSmokeIT)
+mvn verify -pl integration-tests
+```
+
+`-DtestDb=mysql` runs the database tests and the flows on MySQL instead of PostgreSQL; CI runs both, on JDK 21 and 25.
+To run some tests only, name them: `-Dtest='AdminPagesDbTest' -Dsurefire.failIfNoSpecifiedTests=false` for Surefire
+(`-DskipITs` leaves Failsafe out), `-Dit.test='AdminSmokeIT' -Dtest=none` for Failsafe. Browser tests wait on
+requests, editor state or the shell's own promises (`window.quarkpressAdmin`), never on elapsed time. The first build
+downloads the pinned WordPress zip and oidc-client-ts tarball into `~/.m2/repository/.cache/quarkpress-admin`; a
+changed file list needs `mvn clean`, since the copier never deletes files it copied before.
+
+Format with `mvn spotless:apply`; CI runs `spotless:check`. Write non-ASCII characters in Java sources as `\u`
+escapes. Native executables are built and tested only in GitHub Actions (`native.yml`); the native profile refuses to
+run elsewhere.
+
+Every file of the shell (`runtime/src/main/resources/org/quarkpress/admin/shell/`) starts with an SPDX line
+(`// SPDX-License-Identifier: GPL-2.0-or-later` in JavaScript, its CSS and HTML forms) because browsers receive it
+without the repository, and is listed in `shell/shell-files.txt`, the only files the route serves. A WordPress file
+the editor needs is added to `wordpress-files.txt` and its handle to `wordpress-handles.json`; the README's "Upgrading
+WordPress" section describes a release bump.
 
 ## Commits
 
