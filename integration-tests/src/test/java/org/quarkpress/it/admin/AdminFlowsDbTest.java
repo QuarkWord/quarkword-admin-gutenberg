@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
@@ -742,6 +744,9 @@ class AdminFlowsDbTest {
             assertThat(browsers.requests(page)).noneMatch(request -> request.contains("/quarkpress/v1/editor/"));
             takeExpectedFailures(403);
         }
+        // dave's released lock still holds the post for a few seconds, as a released lock does in WordPress: make it an
+        // old one, as if alice came later
+        setup.lock(daves, "dave", 300);
         try (BrowserContext context = browsers.context("alice")) {
             Page page = editorAs(context, "alice", daves);
             page.getByRole(
@@ -1542,6 +1547,325 @@ class AdminFlowsDbTest {
                             + " again.");
             assertThat(page.evaluate("() => window._wpLoadBlockEditor === undefined"))
                     .isEqualTo(true);
+        }
+    }
+
+    // ---- post locks
+
+    private static final String LOCKED_TEXT = "Bob Baker is currently working on this post, which means you cannot make"
+            + " changes, unless you take over.";
+
+    private static final String TAKE_OVER_WARNING = "If you take over, the other user will lose editing control to the"
+            + " post, but their changes will be saved.";
+
+    private static final String TAKEN_OVER_TEXT = "Alice Anders now has editing control of this post. Don't worry, your"
+            + " changes up to this moment have been saved.";
+
+    /** Whether the request is a {@code method} request of post {@code id}'s lock route (the shell sends real methods). */
+    private static boolean isLock(Request request, String method, long id) {
+        return request.method().equals(method) && request.url().endsWith("/wp-json/quarkpress/v1/locks/" + id);
+    }
+
+    /** The requests the page sent since the {@code from}th, as {@link Browsers#requests} lists them. */
+    private static List<String> requestsSince(Page page, int from) {
+        List<String> all = browsers.requests(page);
+        return all.subList(Math.min(from, all.size()), all.size());
+    }
+
+    /** Answers Gravatar's avatar requests with a blank image, so that the dialogs' avatars load without the network. */
+    private static void blankAvatars(BrowserContext context) throws IOException {
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", png);
+        byte[] image = png.toByteArray();
+        context.route(
+                "https://secure.gravatar.com/**",
+                route -> route.fulfill(new Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("image/png")
+                        .setBodyBytes(image)));
+    }
+
+    private static Locator lockDialog(Page page) {
+        return page.getByRole(AriaRole.ALERTDIALOG);
+    }
+
+    /** The lock's time and user, {@code "<time>:<user>"}. */
+    private static long[] lockParts(String value) {
+        int colon = value.indexOf(':');
+        return new long[] {Long.parseLong(value.substring(0, colon)), Long.parseLong(value.substring(colon + 1))};
+    }
+
+    @Test
+    void openingTakesTheLockAndLeavingReleasesIt() throws InterruptedException {
+        long post = setup.post("bob", "post", "publish", "Locked " + token());
+        long bob = setup.userId("bob");
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = listAs(context, "bob");
+            Response taken = page.waitForResponse(
+                    response -> isLock(response.request(), "POST", post), () -> page.navigate(editUrl("/", post)));
+            assertThat(taken.status()).isEqualTo(200);
+            awaitMounted(page);
+            String held = (String) page.evaluate("() => quarkpressAdmin.locks.state.activePostLock");
+            assertThat(held).matches("^\\d+:\\d+$");
+            assertThat(lockParts(held)[1]).isEqualTo(bob);
+            assertThat(setup.lockOf(post)).contains(held);
+            // the editor's own lock dialog never has anything to show
+            assertThat(page.evaluate("() => wp.data.select('core/editor').isPostLocked()"))
+                    .isEqualTo(false);
+
+            AtomicReference<Object> result = new AtomicReference<>();
+            Response refreshed = page.waitForResponse(
+                    response -> isLock(response.request(), "PUT", post),
+                    () -> result.set(page.evaluate("() => quarkpressAdmin.locks.refresh()")));
+            assertThat(result.get()).isEqualTo("refreshed");
+            assertThat(refreshed.status()).isEqualTo(200);
+            assertThat(refreshed.text()).contains("\"new_lock\":").contains("\"release_token\":");
+            String renewed = (String) page.evaluate("() => quarkpressAdmin.locks.state.activePostLock");
+            assertThat(setup.lockOf(post)).contains(renewed);
+
+            // leaving the page (not closing it, which need not run the page's leaving handlers) releases the lock;
+            // Chromium sends the release after the page is gone, so only the application sees it arrive
+            ItRequestLog.clear();
+            page.navigate(browsers.adminUrl("/") + "edit.php");
+            assertThat(ItRequestLog.await("/wp-json/quarkpress/v1/locks/" + post + "?", Duration.ofSeconds(60)))
+                    .isEqualTo("POST /wp-json/quarkpress/v1/locks/" + post + "?_method=DELETE 200");
+            page.locator("#qp-main[aria-busy=false]").waitFor();
+
+            // released as WordPress releases: the lock stays bob's, aged past its window less a few seconds
+            String value = setup.lockOf(post).orElseThrow();
+            assertThat(lockParts(value)[1]).isEqualTo(bob);
+            assertThat(java.time.Instant.now().getEpochSecond() - lockParts(value)[0])
+                    .isGreaterThanOrEqualTo(140);
+        }
+    }
+
+    @Test
+    void aLockedPostShowsTheNoticeAndTakeOverMounts() throws IOException {
+        long post = setup.post("bob", "post", "publish", "Held " + token());
+        setup.lock(post, "bob", 10);
+
+        try (BrowserContext context = browsers.context("alice")) {
+            blankAvatars(context);
+            Page page = listAs(context, "alice");
+            Response taken = page.waitForResponse(
+                    response -> isLock(response.request(), "POST", post), () -> page.navigate(editUrl("/", post)));
+            assertThat(taken.text()).contains("\"isLocked\":true");
+            Locator dialog = lockDialog(page);
+            dialog.getByRole(
+                            AriaRole.HEADING,
+                            new Locator.GetByRoleOptions().setName("This post is already being edited"))
+                    .waitFor();
+            assertThat(dialog.locator("p").allTextContents()).containsExactly(LOCKED_TEXT, TAKE_OVER_WARNING);
+            assertThat(dialog.locator("strong").textContent()).isEqualTo("Bob Baker");
+            assertThat(dialog.locator("img").getAttribute("src")).startsWith("https://secure.gravatar.com/avatar/");
+            assertThat(dialog.getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Exit editor"))
+                            .getAttribute("href"))
+                    .isEqualTo(browsers.adminUrl("/") + "edit.php?post_type=post");
+            // the editor is not mounted under the dialog, and nothing was taken
+            assertThat(page.locator("#editor > *").count()).isZero();
+            assertThat(page.evaluate("() => window._wpLoadBlockEditor === undefined"))
+                    .isEqualTo(true);
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("bob"));
+
+            Response takeover = page.waitForResponse(
+                    response -> response.url().endsWith("/wp-json/quarkpress/v1/locks/" + post + "/takeover"),
+                    () -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Take over"))
+                            .click());
+            assertThat(takeover.status()).isEqualTo(200);
+            awaitMounted(page);
+            assertThat(page.locator("#qp-lock").count()).isZero();
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("alice"));
+            // the route still reported bob's lock: the editor's own dialog must not show it
+            assertThat(page.evaluate("() => wp.data.select('core/editor').isPostLocked()"))
+                    .isEqualTo(false);
+        }
+
+        setup.lock(post, "bob", 10);
+        try (BrowserContext context = browsers.context("alice")) {
+            blankAvatars(context);
+            Page page = listAs(context, "alice");
+            page.navigate(editUrl("/", post));
+            Locator exit =
+                    lockDialog(page).getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Exit editor"));
+            page.waitForResponse(response -> response.url().contains("/wp-json/wp/v2/posts?"), exit::click);
+            page.waitForURL(browsers.adminUrl("/") + "edit.php?post_type=post");
+            page.locator("#qp-main[aria-busy=false]").waitFor();
+            assertThat(heading(page).textContent()).isEqualTo("Posts");
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("bob"));
+        }
+    }
+
+    @Test
+    void aTakeOverAddressOnlyOpensThePostAndAsks() throws IOException {
+        // WordPress refuses its Take over address without the link's nonce; QuarkPress has no nonce, so a crafted
+        // address opens the post as any opening does, and only the dialog's button takes over
+        long post = setup.post("bob", "post", "publish", "Taken by address " + token());
+        setup.lock(post, "bob", 10);
+
+        try (BrowserContext context = browsers.context("alice")) {
+            blankAvatars(context);
+            Page page = listAs(context, "alice");
+            Response taken = page.waitForResponse(
+                    response -> isLock(response.request(), "POST", post),
+                    () -> page.navigate(browsers.adminUrl("/") + "post.php?get-post-lock=1&lockKey=true&post=" + post
+                            + "&action=edit"));
+            assertThat(taken.text()).contains("\"isLocked\":true");
+            Locator dialog = lockDialog(page);
+            dialog.getByRole(
+                            AriaRole.HEADING,
+                            new Locator.GetByRoleOptions().setName("This post is already being edited"))
+                    .waitFor();
+            assertThat(page.url()).isEqualTo(editUrl("/", post));
+            assertThat(browsers.requests(page)).noneMatch(request -> request.endsWith("/locks/" + post + "/takeover"));
+            assertThat(page.locator("#editor > *").count()).isZero();
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("bob"));
+
+            Response takeover = page.waitForResponse(
+                    response -> response.url().endsWith("/wp-json/quarkpress/v1/locks/" + post + "/takeover"),
+                    () -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Take over"))
+                            .click());
+            assertThat(takeover.status()).isEqualTo(200);
+            awaitMounted(page);
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("alice"));
+            assertThat(browsers.requests(page).stream().filter(request -> isLockRequest(request, "POST", post)))
+                    .hasSize(1);
+        }
+    }
+
+    private static boolean isLockRequest(String request, String method, long id) {
+        return request.equals(method + " " + browsers.root() + "wp-json/quarkpress/v1/locks/" + id);
+    }
+
+    @Test
+    void aTakeoverFreezesTheLoser() throws IOException {
+        long post = setup.post("bob", "post", "publish", "Taken over " + token());
+
+        try (BrowserContext bobs = browsers.context("bob");
+                BrowserContext alices = browsers.context("alice")) {
+            blankAvatars(bobs);
+            Page bob = editorAs(bobs, "bob", post);
+            bob.evaluate("() => wp.data.dispatch('core/block-editor').insertBlocks("
+                    + "wp.blocks.createBlock('core/paragraph', { content: 'Typed before the takeover.' }))");
+
+            Page alice = listAs(alices, "alice");
+            alice.navigate(editUrl("/", post));
+            alice.waitForResponse(
+                    response -> response.url().endsWith("/wp-json/quarkpress/v1/locks/" + post + "/takeover"),
+                    () -> lockDialog(alice)
+                            .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Take over"))
+                            .click());
+            awaitMounted(alice);
+
+            int from = browsers.requests(bob).size();
+            AtomicReference<Object> result = new AtomicReference<>();
+            Response autosaved = bob.waitForResponse(
+                    response -> response.url().contains("/wp-json/wp/v2/posts/" + post + "/autosaves")
+                            && response.request().method().equals("POST"),
+                    () -> result.set(bob.evaluate("() => quarkpressAdmin.locks.refresh()")));
+            assertThat(result.get()).isEqualTo("lost");
+            assertThat(autosaved.status()).isEqualTo(200);
+            assertThat(autosaved.request().postData()).contains("Typed before the takeover.");
+
+            Locator dialog = lockDialog(bob);
+            dialog.getByRole(
+                            AriaRole.HEADING,
+                            new Locator.GetByRoleOptions().setName("Someone else has taken over this post"))
+                    .waitFor();
+            assertThat(dialog.locator("p").allTextContents()).containsExactly(TAKEN_OVER_TEXT);
+            assertThat(dialog.getByRole(AriaRole.BUTTON).count()).isZero();
+            assertThat(dialog.getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Exit editor"))
+                            .getAttribute("href"))
+                    .isEqualTo(browsers.adminUrl("/") + "edit.php?post_type=post");
+            assertThat(bob.evaluate("() => wp.data.select('core/editor').isPostSavingLocked()"))
+                    .isEqualTo(true);
+            assertThat(bob.evaluate("() => wp.data.select('core/editor').isPostAutosavingLocked()"))
+                    .isEqualTo(true);
+
+            // frozen: no further refresh, no save and no second autosave
+            assertThat(bob.evaluate("() => quarkpressAdmin.locks.refresh()")).isEqualTo("stopped");
+            bob.evaluate("async () => { wp.data.dispatch('core/block-editor').insertBlocks("
+                    + "wp.blocks.createBlock('core/paragraph', { content: 'Typed after the takeover.' }));"
+                    + " await wp.data.dispatch('core/editor').savePost();"
+                    + " await wp.data.dispatch('core/editor').autosave(); }");
+            // writes to other routes still go: the user's own preferences, saved as the editor saves them
+            assertThat(bob.evaluate(
+                            "async () => { const me = await wp.apiFetch({ path: '/wp/v2/users/me?context=edit' });"
+                                    + " const saved = await wp.apiFetch({ path: '/wp/v2/users/me', method: 'PUT',"
+                                    + " data: { meta: { persisted_preferences: me.meta.persisted_preferences } } });"
+                                    + " return saved.id; }"))
+                    .isEqualTo(Math.toIntExact(setup.userId("bob")));
+            assertThat(bob.evaluate("() => wp.apiFetch({ path: '/wp/v2/posts/" + post + "/autosaves', method: 'POST',"
+                            + " data: { content: 'x' } }).then(() => 'sent', error => error.code)"))
+                    .isEqualTo("quarkpress_post_lock_lost");
+            List<String> sent = requestsSince(bob, from);
+            assertThat(sent.stream().filter(request -> request.contains("/wp/v2/posts/" + post + "/autosaves")))
+                    .hasSize(1);
+            // the refresh that found the takeover, and no other
+            assertThat(sent.stream().filter(request -> request.contains("/quarkpress/v1/locks/")))
+                    .containsExactly("PUT " + browsers.root() + "wp-json/quarkpress/v1/locks/" + post);
+            assertThat(sent)
+                    .noneMatch(
+                            request -> request.startsWith("POST ") && request.contains("/wp/v2/posts/" + post + "?"));
+            assertThat(setup.rest("bob", "/", "wp/v2/posts/" + post + "?context=edit")
+                            .getString("content.raw"))
+                    .doesNotContain("Typed after the takeover.");
+            assertThat(lockParts(setup.lockOf(post).orElseThrow())[1]).isEqualTo(setup.userId("alice"));
+        }
+    }
+
+    @Test
+    void aHiddenTabDoesNotRefresh() {
+        long post = setup.post("bob", "post", "publish", "Hidden " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            Page page = editorAs(context, "bob", post);
+            page.evaluate("() => { Object.defineProperty(document, 'visibilityState',"
+                    + " { configurable: true, get: () => 'hidden' });"
+                    + " Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });"
+                    + " document.dispatchEvent(new Event('visibilitychange')); }");
+            int from = browsers.requests(page).size();
+
+            assertThat(page.evaluate("() => quarkpressAdmin.locks.refresh()")).isEqualTo("skipped");
+            assertThat(requestsSince(page, from)).noneMatch(request -> request.contains("/quarkpress/v1/locks/"));
+
+            Request refresh = page.waitForRequest(
+                    request -> isLock(request, "PUT", post),
+                    () -> page.evaluate("() => { delete document.visibilityState; delete document.hidden;"
+                            + " document.dispatchEvent(new Event('visibilitychange')); }"));
+            assertThat(refresh.response().status()).isEqualTo(200);
+            assertThat(requestsSince(page, from).stream().filter(request -> request.contains("/quarkpress/v1/locks/")))
+                    .containsExactly("PUT " + refresh.url());
+        }
+    }
+
+    @Test
+    void theLockIsRefreshedAtTheConfiguredInterval() {
+        long post = setup.post("bob", "post", "publish", "Refreshed " + token());
+
+        try (BrowserContext context = browsers.context("bob")) {
+            // this flow's shell refreshes every second (the application's setting is a minute)
+            String config = setup.as(null)
+                    .get("/wp-admin/quarkpress-admin/config.json")
+                    .then()
+                    .statusCode(200)
+                    .extract()
+                    .asString();
+            assertThat(config).contains("\"lockRefreshInterval\":60,");
+            String everySecond = config.replace("\"lockRefreshInterval\":60,", "\"lockRefreshInterval\":1,");
+            context.route(
+                    "**/wp-admin/quarkpress-admin/config.json",
+                    route -> route.fulfill(new Route.FulfillOptions()
+                            .setStatus(200)
+                            .setContentType("application/json")
+                            .setBody(everySecond)));
+            Page page = editorAs(context, "bob", post);
+            String token = (String) page.evaluate("() => quarkpressAdmin.locks.state.releaseToken");
+
+            // no call: the shell's own timer sends the refresh, whose new release token the shell keeps
+            Request refresh = page.waitForRequest(request -> isLock(request, "PUT", post), () -> {});
+            assertThat(refresh.response().text()).contains("\"new_lock\":");
+            page.waitForFunction("token => quarkpressAdmin.locks.state.releaseToken !== token", token);
         }
     }
 

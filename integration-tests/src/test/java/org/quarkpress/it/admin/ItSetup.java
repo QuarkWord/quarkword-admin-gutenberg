@@ -155,6 +155,17 @@ final class ItSetup {
                 .getString("value");
     }
 
+    /** The post's stored edit lock ({@code "<time>:<user>"}) on the main site, as alice; empty when it has none. */
+    Optional<String> lockOf(long post) {
+        return Optional.ofNullable(as("alice")
+                .get("/it/locks/" + post)
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getString("value"));
+    }
+
     /** Sets an option of the main site to a JSON value, as alice. */
     void option(String name, String json) {
         optionOn("/", name, json);

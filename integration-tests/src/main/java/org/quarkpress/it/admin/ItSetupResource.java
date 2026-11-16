@@ -35,6 +35,7 @@ import org.quarkpress.persistence.Options;
 import org.quarkpress.persistence.SiteScope;
 import org.quarkpress.persistence.runtime.TenantIds;
 import org.quarkpress.posts.PostChanges;
+import org.quarkpress.posts.PostLocks;
 import org.quarkpress.posts.PostMeta;
 import org.quarkpress.posts.Posts;
 import org.quarkpress.posts.runtime.PostRepository;
@@ -102,6 +103,9 @@ public class ItSetupResource {
 
     @Inject
     PostMeta postMeta;
+
+    @Inject
+    PostLocks postLocks;
 
     @Inject
     Revisions revisions;
@@ -212,6 +216,21 @@ public class ItSetupResource {
             return null;
         });
         return Map.of("value", value);
+    }
+
+    /**
+     * The post's edit lock as the posts module reads it, {@code "<time>:<user>"}, for a caller with
+     * {@code manage_options}: {@code {"value": null}} when the post has none.
+     */
+    @GET
+    @Path("/locks/{post}")
+    public Map<String, Object> lockOf(@PathParam("post") long post) {
+        requireManageOptions();
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put(
+                "value",
+                postLocks.current(PostId.of(post)).map(PostLocks.Lock::value).orElse(null));
+        return answer;
     }
 
     /**
