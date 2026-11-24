@@ -3,35 +3,35 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.quarkpress</groupId>
-    <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+    <groupId>org.quarkword</groupId>
+    <artifactId>quarkword-admin-gutenberg-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>quarkpress-admin-gutenberg</artifactId>
+  <artifactId>quarkword-admin-gutenberg</artifactId>
 
-  <name>QuarkPress Admin Gutenberg :: Runtime</name>
-  <description>The QuarkPress admin shell and WordPress's block editor</description>
+  <name>QuarkWord Admin Gutenberg :: Runtime</name>
+  <description>The QuarkWord admin shell and WordPress's block editor</description>
 
   <properties>
-    <automatic.module.name>org.quarkpress.admin</automatic.module.name>
+    <automatic.module.name>org.quarkword.admin</automatic.module.name>
     <!-- Where the build keeps the two downloads between builds, and the program that copies the listed files. -->
-    <admin.download.cache>${user.home}/.m2/repository/.cache/quarkpress-admin</admin.download.cache>
-    <admin.copier>${project.basedir}/src/build/org/quarkpress/admin/build/AssetCopier.java</admin.copier>
-    <admin.resources>${project.build.outputDirectory}/org/quarkpress/admin</admin.resources>
+    <admin.download.cache>${user.home}/.m2/repository/.cache/quarkword-admin</admin.download.cache>
+    <admin.copier>${project.basedir}/src/build/org/quarkword/admin/build/AssetCopier.java</admin.copier>
+    <admin.resources>${project.build.outputDirectory}/org/quarkword/admin</admin.resources>
   </properties>
 
   <dependencies>
     <!-- The core module, so that the deployment side may declare the module's configuration keys through the core's
          build items: the extension plugin refuses a deployment that reaches a runtime extension its runtime lacks. -->
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-core</artifactId>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-core</artifactId>
     </dependency>
     <!-- The REST API the shell and the editor talk to, and its configured path. -->
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-rest-wp-v2</artifactId>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-rest-wp-v2</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -112,7 +112,7 @@
                 <argument>--source</argument>
                 <argument>21</argument>
                 <argument>${admin.copier}</argument>
-                <argument>${project.basedir}/src/main/resources/org/quarkpress/admin/wordpress-files.txt</argument>
+                <argument>${project.basedir}/src/main/resources/org/quarkword/admin/wordpress-files.txt</argument>
                 <argument>${project.build.directory}/downloads/wordpress-${wordpress.version}.zip</argument>
                 <argument>${admin.resources}/wp</argument>
                 <argument>${wordpress.sha256}</argument>
@@ -131,7 +131,7 @@
                 <argument>--source</argument>
                 <argument>21</argument>
                 <argument>${admin.copier}</argument>
-                <argument>${project.basedir}/src/main/resources/org/quarkpress/admin/oidc-client-ts-files.txt</argument>
+                <argument>${project.basedir}/src/main/resources/org/quarkword/admin/oidc-client-ts-files.txt</argument>
                 <argument>${project.build.directory}/downloads/oidc-client-ts</argument>
                 <argument>${admin.resources}</argument>
               </arguments>
@@ -190,7 +190,7 @@
         <artifactId>quarkus-extension-maven-plugin</artifactId>
         <configuration>
           <capabilities>
-            <provides>org.quarkpress.admingutenberg</provides>
+            <provides>org.quarkword.admingutenberg</provides>
           </capabilities>
         </configuration>
       </plugin>

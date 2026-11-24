@@ -1,10 +1,10 @@
-# Contributing to QuarkPress Admin Gutenberg
+# Contributing to QuarkWord Admin Gutenberg
 
-This repository holds the admin screens of [QuarkPress](https://github.com/QuarkPress/quarkpress): a Quarkus
+This repository holds the admin screens of [QuarkWord](https://github.com/QuarkWord/quarkword): a Quarkus
 extension that serves an admin shell and WordPress's block editor. It is licensed under the GNU General Public
 License, version 2 or later (`LICENSE`), because it redistributes WordPress's built block-editor packages. The
-QuarkPress modules it builds on live in the Apache-licensed repository
-[QuarkPress/quarkpress](https://github.com/QuarkPress/quarkpress).
+QuarkWord modules it builds on live in the Apache-licensed repository
+[QuarkWord/quarkword](https://github.com/QuarkWord/quarkword).
 
 ## Prerequisites
 
@@ -14,13 +14,13 @@ QuarkPress modules it builds on live in the Apache-licensed repository
 
 ## Building
 
-QuarkPress is not on Maven Central yet. Install the QuarkPress modules at the pinned commit first: the parent POM's
-`quarkpress.commit` property names it, and CI does the same.
+QuarkWord is not on Maven Central yet. Install the QuarkWord modules at the pinned commit first: the parent POM's
+`quarkword.commit` property names it, and CI does the same.
 
 ```bash
-git clone https://github.com/QuarkPress/quarkpress.git
-cd quarkpress
-git checkout <quarkpress.commit>
+git clone https://github.com/QuarkWord/quarkword.git
+cd quarkword
+git checkout <quarkword.commit>
 mvn install -DskipTests -pl bom,extensions/rest-wp-v2/deployment,extensions/multisite/deployment,extensions/security/deployment,extensions/posts/deployment,extensions/taxonomy/deployment,extensions/revisions/deployment,extensions/scheduling/deployment,extensions/media/deployment,extensions/media-storage-fs/deployment,extensions/media-image-imageio/deployment,extensions/blocks/deployment,extensions/outbound/deployment -am
 ```
 
@@ -42,15 +42,15 @@ mvn verify -pl integration-tests
 `-DtestDb=mysql` runs the database tests and the flows on MySQL instead of PostgreSQL; CI runs both, on JDK 21 and 25.
 To run some tests only, name them: `-Dtest='AdminPagesDbTest' -Dsurefire.failIfNoSpecifiedTests=false` for Surefire
 (`-DskipITs` leaves Failsafe out), `-Dit.test='AdminSmokeIT' -Dtest=none` for Failsafe. Browser tests wait on
-requests, editor state or the shell's own promises (`window.quarkpressAdmin`), never on elapsed time. The first build
-downloads the pinned WordPress zip and oidc-client-ts tarball into `~/.m2/repository/.cache/quarkpress-admin`; a
+requests, editor state or the shell's own promises (`window.quarkwordAdmin`), never on elapsed time. The first build
+downloads the pinned WordPress zip and oidc-client-ts tarball into `~/.m2/repository/.cache/quarkword-admin`; a
 changed file list needs `mvn clean`, since the copier never deletes files it copied before.
 
 Format with `mvn spotless:apply`; CI runs `spotless:check`. Write non-ASCII characters in Java sources as `\u`
 escapes. Native executables are built and tested only in GitHub Actions (`native.yml`); the native profile refuses to
 run elsewhere.
 
-Every file of the shell (`runtime/src/main/resources/org/quarkpress/admin/shell/`) starts with an SPDX line
+Every file of the shell (`runtime/src/main/resources/org/quarkword/admin/shell/`) starts with an SPDX line
 (`// SPDX-License-Identifier: GPL-2.0-or-later` in JavaScript, its CSS and HTML forms) because browsers receive it
 without the repository, and is listed in `shell/shell-files.txt`, the only files the route serves. A WordPress file
 the editor needs is added to `wordpress-files.txt` and its handle to `wordpress-handles.json`; the README's "Upgrading
@@ -63,10 +63,10 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) with a scope wh
 
 ## Design rules
 
-The rules of the QuarkPress repository apply:
+The rules of the QuarkWord repository apply:
 
 1. Quarkus and Java best practices first: build-time over runtime, CDI over globals, typed APIs over strings.
-2. Everything is optional; this extension is its own module and needs only the QuarkPress modules it names.
+2. Everything is optional; this extension is its own module and needs only the QuarkWord modules it names.
 3. Both PostgreSQL and MySQL are first-class.
 
 The admin shell is plain JavaScript (ES modules), CSS and HTML, served as written: no framework, no bundler, no
@@ -74,7 +74,7 @@ transpiler, no npm at build time beyond the pinned downloads.
 
 ## Source policy
 
-QuarkPress reproduces what WordPress does for its users with an original Java and Quarkus
+QuarkWord reproduces what WordPress does for its users with an original Java and Quarkus
 design. It is never a port of WordPress.
 
 Allowed sources:

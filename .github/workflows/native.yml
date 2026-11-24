@@ -26,23 +26,23 @@ jobs:
         db: [postgresql, mysql]
     steps:
       - uses: actions/checkout@v4
-      # Read with sed, not Maven: the parent POM imports quarkpress-bom, which is not installed yet.
+      # Read with sed, not Maven: the parent POM imports quarkword-bom, which is not installed yet.
       - name: Read the pins
         run: |
-          echo "QUARKPRESS_COMMIT=$(sed -n 's:.*<quarkpress.commit>\(.*\)</quarkpress.commit>.*:\1:p' pom.xml)" >> "$GITHUB_ENV"
+          echo "QUARKWORD_COMMIT=$(sed -n 's:.*<quarkword.commit>\(.*\)</quarkword.commit>.*:\1:p' pom.xml)" >> "$GITHUB_ENV"
           echo "PLAYWRIGHT_VERSION=$(sed -n 's:.*<playwright.version>\(.*\)</playwright.version>.*:\1:p' pom.xml)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
-          repository: QuarkPress/quarkpress
-          ref: ${{ env.QUARKPRESS_COMMIT }}
-          path: .quarkpress
+          repository: QuarkWord/quarkword
+          ref: ${{ env.QUARKWORD_COMMIT }}
+          path: .quarkword
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
           cache: maven
-      - name: Install the QuarkPress modules at the pinned commit
-        working-directory: .quarkpress
+      - name: Install the QuarkWord modules at the pinned commit
+        working-directory: .quarkword
         run: mvn -B -ntp install -DskipTests -pl bom,extensions/rest-wp-v2/deployment,extensions/multisite/deployment,extensions/security/deployment,extensions/posts/deployment,extensions/taxonomy/deployment,extensions/revisions/deployment,extensions/scheduling/deployment,extensions/media/deployment,extensions/media-storage-fs/deployment,extensions/media-image-imageio/deployment,extensions/blocks/deployment,extensions/outbound/deployment -am
       - name: Install the admin modules
         run: mvn -B -ntp install -DskipTests -pl runtime,deployment -am
@@ -65,4 +65,4 @@ jobs:
             -Dquarkus.native.builder-image=mandrel -DskipUnitTests=true \
             -Dquarkus.native.additional-build-args=-J-XX:TieredStopAtLevel=1,--parallelism=8 \
             -DtestDb=${{ matrix.db }} -pl integration-tests
-          bash .github/scripts/require-tests-ran.sh integration-tests/target/failsafe-reports/TEST-org.quarkpress.it.admin.AdminSmokeIT.xml
+          bash .github/scripts/require-tests-ran.sh integration-tests/target/failsafe-reports/TEST-org.quarkword.it.admin.AdminSmokeIT.xml

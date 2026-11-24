@@ -1,17 +1,17 @@
-# QuarkPress Admin Gutenberg
+# QuarkWord Admin Gutenberg
 
-A Quarkus extension that serves QuarkPress's admin screens under each site's admin path (`/wp-admin/`): a small admin
+A Quarkus extension that serves QuarkWord's admin screens under each site's admin path (`/wp-admin/`): a small admin
 shell (sign-in through OpenID Connect, the posts, pages and media lists, trash and restore, new posts and pages) and the
 editor screen, which loads WordPress 7.1.3's own block-editor packages from the jar and mounts
-`wp.editPost.initializeEditor` on QuarkPress's WordPress-compatible REST API. The shell is plain JavaScript (ES
+`wp.editPost.initializeEditor` on QuarkWord's WordPress-compatible REST API. The shell is plain JavaScript (ES
 modules), CSS and HTML served as written; everything post- and user-specific happens in the browser, over the REST API,
 with a Bearer token. It works on a single site and in a network, where every site serves the same pages under its own
 path.
 
 Licensed under the GNU General Public License, version 2 or later (`LICENSE`), because the runtime jar redistributes
 WordPress's built packages, scripts and styles; see `THIRD-PARTY.md` for the files of other projects it carries. The
-QuarkPress modules it builds on are Apache-2.0 and live in
-[QuarkPress/quarkpress](https://github.com/QuarkPress/quarkpress).
+QuarkWord modules it builds on are Apache-2.0 and live in
+[QuarkWord/quarkword](https://github.com/QuarkWord/quarkword).
 
 Status: experimental.
 
@@ -19,29 +19,29 @@ Status: experimental.
 
 ```xml
 <dependency>
-  <groupId>org.quarkpress</groupId>
-  <artifactId>quarkpress-admin-gutenberg</artifactId>
+  <groupId>org.quarkword</groupId>
+  <artifactId>quarkword-admin-gutenberg</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-QuarkPress is not on Maven Central yet: install the QuarkPress modules from
-[QuarkPress/quarkpress](https://github.com/QuarkPress/quarkpress) at the commit this repository's parent POM names
-(`quarkpress.commit`), then this repository's `runtime` and `deployment` modules (see `CONTRIBUTING.md`). The
-application imports `quarkpress-bom` (`0.1.0-SNAPSHOT`) and the Quarkus platform BOM 3.40.1, as the QuarkPress modules
+QuarkWord is not on Maven Central yet: install the QuarkWord modules from
+[QuarkWord/quarkword](https://github.com/QuarkWord/quarkword) at the commit this repository's parent POM names
+(`quarkword.commit`), then this repository's `runtime` and `deployment` modules (see `CONTRIBUTING.md`). The
+application imports `quarkword-bom` (`0.1.0-SNAPSHOT`) and the Quarkus platform BOM 3.40.1, as the QuarkWord modules
 do.
 
 ### Requirements
 
-- **The QuarkPress modules.** The extension brings `quarkpress-core` and `quarkpress-rest-wp-v2` (the REST API the
+- **The QuarkWord modules.** The extension brings `quarkword-core` and `quarkword-rest-wp-v2` (the REST API the
   shell and the editor talk to, with what it brings: persistence, security, posts, taxonomy, blocks, outbound). The
-  application adds what its sites need and the editor uses when present: `quarkpress-media` with a storage backend
-  (`quarkpress-media-storage-fs` or `-s3`) and an image backend (`quarkpress-media-image-imageio`) for the Media
+  application adds what its sites need and the editor uses when present: `quarkword-media` with a storage backend
+  (`quarkword-media-storage-fs` or `-s3`) and an image backend (`quarkword-media-image-imageio`) for the Media
   Library and uploads (without the media module the Media Library screen says "The media module is not installed."),
-  `quarkpress-revisions` for revisions and autosaves, `quarkpress-scheduling` for scheduled posts,
-  `quarkpress-multisite` for a network, a JDBC driver (`quarkus-jdbc-postgresql` or `quarkus-jdbc-mysql`) and
+  `quarkword-revisions` for revisions and autosaves, `quarkword-scheduling` for scheduled posts,
+  `quarkword-multisite` for a network, a JDBC driver (`quarkus-jdbc-postgresql` or `quarkus-jdbc-mysql`) and
   `quarkus-rest-jackson`. The test application in `integration-tests` has all of them.
-- **An OpenID Connect provider with a public client** for the shell, by default `quarkpress-admin` in the realm the
+- **An OpenID Connect provider with a public client** for the shell, by default `quarkword-admin` in the realm the
   application's default OIDC tenant (the security module) accepts Bearer tokens from. In Keycloak:
   - client authentication off (a public client), standard flow (authorization code) on, implicit flow and direct
     access grants off;
@@ -55,34 +55,34 @@ do.
     refresh token, since it has no silent-renewal page, so a session lasts until the realm's SSO session idle or
     maximum time ends;
   - the access tokens must pass the application's checks: they must carry the `iss` the server's OIDC discovery
-    reports (with a public `quarkpress.admin.oidc.authority`, give Keycloak a fixed `hostname` so that the browser and
+    reports (with a public `quarkword.admin.oidc.authority`, give Keycloak a fixed `hostname` so that the browser and
     the server see the same issuer, else every Bearer token is refused); the claims the security module reads
     (`preferred_username`, `email`, `given_name`, `family_name`), which Keycloak's default `profile` and `email` client
     scopes give; and, when `quarkus.oidc.token.audience` is set, that audience, through an audience mapper.
 
-  The realm file of the test application (`integration-tests/src/main/resources/quarkpress-admin-dev-realm.json`)
+  The realm file of the test application (`integration-tests/src/main/resources/quarkword-admin-dev-realm.json`)
   declares such a client with the redirect URI `*`, which is for Dev Services only.
 - **A provider the browser reaches.** The shell talks to the provider from the browser. When
-  `quarkus.oidc.auth-server-url` is an address only the server reaches, set `quarkpress.admin.oidc.authority` to the
+  `quarkus.oidc.auth-server-url` is an address only the server reaches, set `quarkword.admin.oidc.authority` to the
   provider's public issuer URL.
 - **English time-zone names.** The editor's dates come from the REST module's editor route, whose time-zone
   abbreviations need an English locale among `quarkus.locales` (see the REST module's README).
 
 ## Configuration
 
-Every key is read at start-up. A key under `quarkpress.admin` that is not listed here stops the application.
+Every key is read at start-up. A key under `quarkword.admin` that is not listed here stops the application.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `quarkpress.admin.path` | `/wp-admin/` | The path of the admin screens below each site's path, with a leading and a trailing slash and no empty or dot segment: the lists are at `<site path><path>edit.php`, the editor at `<site path><path>post.php`. It may have more than one segment (`/a/b/`); the pages then reach WordPress's files through one more `../`. WordPress's files stay under `wp-includes/` and `wp-admin/{css,js,images}/` whatever this path is. The path without its trailing slash (`/wp-admin`) is redirected to it (301). The editor's dashboard link and its link to a newer autosave's revision screen lead to the admin folder of the site being edited, whatever `quarkpress.rest-wp-v2.editor.dashboard-url` says. Another value fails the start. |
-| `quarkpress.admin.oidc.authority` | the application's `quarkus.oidc.auth-server-url` | The OpenID Connect provider (issuer URL) the shell signs in with. With neither set, the application does not start. |
-| `quarkpress.admin.oidc.client-id` | `quarkpress-admin` | The public client the shell signs in as. |
-| `quarkpress.admin.oidc.scope` | `openid profile email` | The scopes the shell asks for. |
-| `quarkpress.admin.lock-refresh-interval` | `60s` | How often the editor tells the server that its user still holds the post's lock, while the tab is visible (D1). The shell counts whole seconds; under one second the application does not start. |
+| `quarkword.admin.path` | `/wp-admin/` | The path of the admin screens below each site's path, with a leading and a trailing slash and no empty or dot segment: the lists are at `<site path><path>edit.php`, the editor at `<site path><path>post.php`. It may have more than one segment (`/a/b/`); the pages then reach WordPress's files through one more `../`. WordPress's files stay under `wp-includes/` and `wp-admin/{css,js,images}/` whatever this path is. The path without its trailing slash (`/wp-admin`) is redirected to it (301). The editor's dashboard link and its link to a newer autosave's revision screen lead to the admin folder of the site being edited, whatever `quarkword.rest-wp-v2.editor.dashboard-url` says. Another value fails the start. |
+| `quarkword.admin.oidc.authority` | the application's `quarkus.oidc.auth-server-url` | The OpenID Connect provider (issuer URL) the shell signs in with. With neither set, the application does not start. |
+| `quarkword.admin.oidc.client-id` | `quarkword-admin` | The public client the shell signs in as. |
+| `quarkword.admin.oidc.scope` | `openid profile email` | The scopes the shell asks for. |
+| `quarkword.admin.lock-refresh-interval` | `60s` | How often the editor tells the server that its user still holds the post's lock, while the tab is visible (D1). The shell counts whole seconds; under one second the application does not start. |
 
 The editor's other settings (the autosave intervals, the theme features) belong to the REST module:
-`quarkpress.rest-wp-v2.editor.*` and `quarkpress.rest-wp-v2.theme.*`, described in its README. Its
-`quarkpress.rest-wp-v2.path` (`/wp-json`) is the REST root the shell uses.
+`quarkword.rest-wp-v2.editor.*` and `quarkword.rest-wp-v2.theme.*`, described in its README. Its
+`quarkword.rest-wp-v2.path` (`/wp-json`) is the REST root the shell uses.
 
 ## What is served
 
@@ -96,14 +96,14 @@ anything else goes on to the application's other routes.
 | `wp-admin/edit.php` | The shell page: the posts list; `?post_type=page` the pages list; `post_status=`, `paged=` and the trash notice's `trashed=`, `untrashed=`, `deleted=`, `ids=` as in WordPress. |
 | `wp-admin/upload.php` | The shell page: the Media Library list. |
 | `wp-admin/post.php?post=<id>&action=edit` | The editor page, for any post type the REST API serves. |
-| `wp-admin/post-new.php[?post_type=<type>]` | The editor page: it creates the draft (`POST /quarkpress/v1/drafts`), puts `post.php?post=<id>&action=edit` in the address bar and opens it. |
+| `wp-admin/post-new.php[?post_type=<type>]` | The editor page: it creates the draft (`POST /quarkword/v1/drafts`), puts `post.php?post=<id>&action=edit` in the address bar and opens it. |
 | `wp-admin/revision.php` | The editor page, showing a notice that points back to the editor (D9). |
-| `wp-admin/quarkpress-admin/config.json` | The shell's settings: `adminPath`, `restPath`, `oidc` (`authority`, `clientId`, `scope`), `lockRefreshInterval` in seconds and the `wordpress` version. The same answer for every site and user. |
-| `wp-admin/quarkpress-admin/<file>` | The shell's own files (`app.js`, `editor.js`, `shell.css`, `screens/…`, `editor/…`, `l10n/…`), only those `shell/shell-files.txt` lists. |
-| `wp-admin/quarkpress-admin/vendor/oidc-client-ts.js` | The vendored sign-in client (oidc-client-ts's browser bundle), and its `oidc-client-ts.LICENSE`. |
+| `wp-admin/quarkword-admin/config.json` | The shell's settings: `adminPath`, `restPath`, `oidc` (`authority`, `clientId`, `scope`), `lockRefreshInterval` in seconds and the `wordpress` version. The same answer for every site and user. |
+| `wp-admin/quarkword-admin/<file>` | The shell's own files (`app.js`, `editor.js`, `shell.css`, `screens/…`, `editor/…`, `l10n/…`), only those `shell/shell-files.txt` lists. |
+| `wp-admin/quarkword-admin/vendor/oidc-client-ts.js` | The vendored sign-in client (oidc-client-ts's browser bundle), and its `oidc-client-ts.LICENSE`. |
 | `wp-includes/…`, `wp-admin/css/…`, `wp-admin/js/…`, `wp-admin/images/…` | WordPress's files, in WordPress's own layout, only those `wordpress-files.txt` lists; any other path there answers 404. |
 
-(`wp-admin/` stands for `quarkpress.admin.path`.) A path with a `.` or `..` segment, a segment starting with a dot, an
+(`wp-admin/` stands for `quarkword.admin.path`.) A path with a `.` or `..` segment, a segment starting with a dot, an
 encoded dot, a backslash or an empty segment is answered by none of these.
 
 - **The two pages** are rendered once, at start-up, from `wordpress-handles.json`: WordPress's script and style
@@ -123,11 +123,11 @@ encoded dot, a backslash or an empty segment is answered by none of these.
   `https://registry.npmjs.org/oidc-client-ts/-/oidc-client-ts-3.5.0.tgz`, checks each against the SHA-256 pinned in the
   parent POM (`wordpress.sha256`, `oidc-client-ts.sha256`; wordpress.org publishes only SHA-1 and MD5, so the WordPress
   pin was computed once from the archive and checked against those), keeps them in
-  `~/.m2/repository/.cache/quarkpress-admin`, and copies only the files the checked-in lists name into the jar under
-  `org/quarkpress/admin/`: `wordpress-files.txt` (about 170 of WordPress's files under `wp/`, D7, plus two licence
+  `~/.m2/repository/.cache/quarkword-admin`, and copies only the files the checked-in lists name into the jar under
+  `org/quarkword/admin/`: `wordpress-files.txt` (about 170 of WordPress's files under `wp/`, D7, plus two licence
   files: WordPress's `license.txt`, kept in the jar and never served, and TinyMCE's, served as text beside its files at
   `wp-includes/js/tinymce/license.txt`) and `oidc-client-ts-files.txt` (the browser bundle and its licence under
-  `vendor/`, the licence served as text at `wp-admin/quarkpress-admin/vendor/oidc-client-ts.LICENSE`). The copier checks
+  `vendor/`, the licence served as text at `wp-admin/quarkword-admin/vendor/oidc-client-ts.LICENSE`). The copier checks
   the zip's digest again first; another digest or a listed file missing from the download fails the build before
   anything is copied, never a jar with part of the set. The lists hold paths, handles, dependency names and version
   strings only: no WordPress file is in this repository.
@@ -145,13 +145,13 @@ The handles and versions of a release are data, but only part of that data comes
    list, the legacy scripts the packages depend on, the inline scripts and TinyMCE's version, all kept by hand in
    WordPress's script loader.
 4. Update `wordpress-files.txt` (the build names any listed file the zip lacks) and rerun the browser-facts run
-   against the new release (the QuarkPress repository's `testing/wp-rest-parity`, profile `capture-har`), then this
+   against the new release (the QuarkWord repository's `testing/wp-rest-parity`, profile `capture-har`), then this
    repository's tests: the registry tests hold the recorded tag order of WordPress's page, and the browser flows the
    editor's behaviour.
 
 ## Screens
 
-- **Sign-in.** A page without a session shows a "Log In" screen whose "Log in with QuarkPress" button leaves for the
+- **Sign-in.** A page without a session shows a "Log In" screen whose "Log in with QuarkWord" button leaves for the
   provider (authorization code with PKCE) and comes back to the page it started from (only a page of the same admin
   folder).
 - **Posts and Pages** (`edit.php`, `edit.php?post_type=page`): title and date columns, the status views All,
@@ -186,7 +186,7 @@ grid and its row actions. The shell has no menu beyond "All Posts", "All Pages" 
   request, so the refresh token is never sent twice at once and Keycloak's "Revoke Refresh Token" can stay on.
 - REST calls carry `Authorization: Bearer …` only when their URL is below the site's own REST root; no other request
   gets the token. Without a token, nothing is sent.
-- There is no nonce and no login cookie. The only cookie is the preview session (`quarkpress_preview`, `HttpOnly`,
+- There is no nonce and no login cookie. The only cookie is the preview session (`quarkword_preview`, `HttpOnly`,
   `SameSite=Lax`, the site's path), which only the front end's preview pages read; the REST API never accepts it as a
   credential.
 - The sign-in comes back only to a page of the same admin folder, and the shell only ever rewrites the address bar to a
@@ -203,21 +203,21 @@ grid and its row actions. The shell has no menu beyond "All Posts", "All Pages" 
   registry (WordPress's recorded tag order).
 - `deployment`: `QuarkusExtensionTest` tests of the configuration, the served files and headers, the two pages and the
   settings answer, against PostgreSQL or MySQL through Dev Services (`*DbTest`).
-- `integration-tests` (never published): a test application with every QuarkPress module the admin uses, Keycloak and
+- `integration-tests` (never published): a test application with every QuarkWord module the admin uses, Keycloak and
   the database through Dev Services, and Playwright for Java 1.63.0 driving headless Chromium. `AdminFlowsDbTest` runs
   the sign-in, lists, trash and restore, editor, lock, preview and degradation flows, each as one named user in its own
   browser context, waiting on requests, editor state and the shell's own promises, never on elapsed time.
   `AdminSmokeIT` runs a short flow against the packaged application, and against the native executable in CI.
-- `.github/workflows/ci.yml`: JDK 21 and 25 × PostgreSQL and MySQL. It checks out QuarkPress/quarkpress at the
-  parent POM's `quarkpress.commit` (into `.quarkpress/`, ignored by git) and installs the modules this repository uses,
+- `.github/workflows/ci.yml`: JDK 21 and 25 × PostgreSQL and MySQL. It checks out QuarkWord/quarkword at the
+  parent POM's `quarkword.commit` (into `.quarkword/`, ignored by git) and installs the modules this repository uses,
   installs the admin modules, installs Playwright's Chromium (cached by the Playwright version), runs the extension's
   tests and then the browser flows in a Maven run of their own, and fails when the flows did not run; `spotless:check`
   on one cell.
 - `.github/workflows/native.yml`: the same pins, then a Mandrel container build of the test application and the
   smoke flow against the native executable, on PostgreSQL and MySQL.
 
-The monorepo pin moves with every QuarkPress change the admin needs: the commit is pushed to QuarkPress/quarkpress
-first, then `quarkpress.commit` names it.
+The monorepo pin moves with every QuarkWord change the admin needs: the commit is pushed to QuarkWord/quarkword
+first, then `quarkword.commit` names it.
 
 ## Differences from wp-admin
 
@@ -225,9 +225,9 @@ The labels are stable; withdrawn labels (D8, D11, D15) are not reused.
 
 | Label | Difference |
 |---|---|
-| D1 | No admin-ajax and no heartbeat: the post lock is refreshed through `/quarkpress/v1/locks` every 60 s (`quarkpress.admin.lock-refresh-interval`) while the tab is visible and at once when it becomes visible again (WordPress's heartbeat: every 10 s while focused, 120 s while blurred), released on leaving the page with a one-time token (WordPress 7.1.3 never releases it, so a closed tab keeps the lock for up to 150 s), and the session check is OIDC token renewal with the shell's own overlay. |
+| D1 | No admin-ajax and no heartbeat: the post lock is refreshed through `/quarkword/v1/locks` every 60 s (`quarkword.admin.lock-refresh-interval`) while the tab is visible and at once when it becomes visible again (WordPress's heartbeat: every 10 s while focused, 120 s while blurred), released on leaving the page with a one-time token (WordPress 7.1.3 never releases it, so a closed tab keeps the lock for up to 150 s), and the session check is OIDC token renewal with the shell's own overlay. |
 | D2 | The Classic block edits with TinyMCE as in WordPress (content that is not block-delimited opens as one Classic block), with its inline link toolbar; but the classic-editor pieces that need admin-ajax or the classic edit screen are not shipped: the link dialog's script (`wplink`, whose search is an admin-ajax call) and the jQuery UI menu and autocomplete it uses, the text-mode toolbar (`quicktags`), the Thickbox media popup (`thickbox`, `media-upload`), the classic shortcode views (`mce-view`) and the legacy `shortcode` script (the `@wordpress/shortcode` package ships). What needs them, the classic link dialog with its search and the classic media popup, is unavailable. |
-| D3 | No theme styles in the canvas until QuarkPress has themes: the editor settings carry no `styles`, so the canvas uses the editor's default styles, the block CSS, the classic-theme styles and the preset variables derived from the editor settings. |
+| D3 | No theme styles in the canvas until QuarkWord has themes: the editor settings carry no `styles`, so the canvas uses the editor's default styles, the block CSS, the classic-theme styles and the preset variables derived from the editor settings. |
 | D4 | The media library is the editor's REST-based DataViews modal (`__experimentalDataViewsMediaModal`), not the Backbone `wp.media` modal; the legacy media scripts are loaded as dependencies with neutralised settings. |
 | D5 | Draft previews rely on the preview session cookie, opened before the editor mounts and renewed before it expires, which tells the front end who is previewing (a preview window carries no token); published-post previews carry the preview token. |
 | D6 | en_US only: no language packs and no translation tags; `wp.i18n` holds only the text direction, and the date texts are English. |
@@ -239,10 +239,10 @@ The labels are stable; withdrawn labels (D8, D11, D15) are not reused.
 | D14 | Asset URLs are page-relative (`../wp-includes/…`), so one page serves every site of a network; WordPress prints absolute site URLs. |
 | D16 | After a takeover, the tab that lost the lock autosaves once, freezes saving and shows "Someone else has taken over this post"; WordPress 7.1.3 keeps refreshing and autosaves on every 10 s tick. |
 | D17 | An expired token is renewed once and the request retried once, then the error is shown (a failed renewal sends nothing and shows the session overlay); WordPress's nonce refresh retries without a bound while the server keeps refusing, with no notice. |
-| D18 | The editor's first wave of reads asks for the theme's base global styles, their variations and the front page's template lookup (`/wp/v2/global-styles/themes/<stylesheet>`, `…/variations`, `/wp/v2/templates/lookup?slug=front-page`), which QuarkPress does not serve until it has a theme engine; their 404s end that wave, so the second wave never runs and api-fetch logs "Some preloads were never consumed" with the post author's preloaded read, where WordPress logs "All preloads consumed.". The editor works as before. |
+| D18 | The editor's first wave of reads asks for the theme's base global styles, their variations and the front page's template lookup (`/wp/v2/global-styles/themes/<stylesheet>`, `…/variations`, `/wp/v2/templates/lookup?slug=front-page`), which QuarkWord does not serve until it has a theme engine; their 404s end that wave, so the second wave never runs and api-fetch logs "Some preloads were never consumed" with the post author's preloaded read, where WordPress logs "All preloads consumed.". The editor works as before. |
 | D19 | Log Out closes every preview session of the user on that site, whichever browser opened it, before signing out (stricter than WordPress, whose logout ends only the login session it was made from: the user's other browsers stay signed in); preview cookies of the user's other sites expire on their own; leaving the editor does not close the session (like WordPress's login cookie, it outlives the tab). |
 | D20 | The posts and pages lists have no "Mine" and no "Sticky" views; wp-admin shows "Mine" when other authors have posts too and "Sticky" when there are sticky posts. |
 | D21 | Opening WordPress's take-over address (`post.php?post=<id>&action=edit&get-post-lock=1`) only opens the post: when another user holds the lock, the "This post is already being edited" dialog is shown and the lock is taken over only by its "Take over" button, since no nonce can prove the link was printed for the user. WordPress takes over on such a link when its nonce is valid and refuses it without one. |
 | D22 | The lock dialogs show WordPress's texts without the "(preview↗)" link to the other user's version of the post. |
-| D23 | The theme's `wp-block-styles` support is not reflected in the canvas: WordPress adds the block library's theme stylesheet to the editor's iframe when the theme declares it (`quarkpress.rest-wp-v2.theme.wp-block-styles`); QuarkPress ships no such stylesheet until it has themes. |
+| D23 | The theme's `wp-block-styles` support is not reflected in the canvas: WordPress adds the block library's theme stylesheet to the editor's iframe when the theme declares it (`quarkword.rest-wp-v2.theme.wp-block-styles`); QuarkWord ships no such stylesheet until it has themes. |
 | D24 | The vendored sign-in client ends with a `sourceMappingURL` comment whose map is not shipped: with the browser's developer tools open, the request for `oidc-client-ts.js.map` answers 404. The file is kept byte-identical to the published package. |

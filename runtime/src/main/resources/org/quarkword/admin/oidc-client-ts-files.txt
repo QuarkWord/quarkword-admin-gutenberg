@@ -1,0 +1,6 @@
+# The oidc-client-ts files the runtime jar carries, copied at build time from the pinned npm tarball (paths below the
+# unpacked tarball) into org/quarkword/admin/. A line "a -> b" copies a to b. The tarball has no NOTICE file.
+# The browser bundle (dist/browser) is the one that defines the global `oidc` in a classic script; dist/umd, despite
+# its name, is a CommonJS module (`module.exports = ...`) that fails in a browser.
+package/dist/browser/oidc-client-ts.js -> vendor/oidc-client-ts.js
+package/LICENSE -> vendor/oidc-client-ts.LICENSE

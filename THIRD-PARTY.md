@@ -7,7 +7,7 @@ build downloads them at the pinned versions, checks their SHA-256 and copies the
 
 The built block-editor packages, scripts and styles of WordPress (`wordpress-7.1.3.zip`), under the GNU General Public
 License, version 2 or later. The zip's `license.txt` (this notice followed by the full text of the GNU General Public
-License, version 2) travels in the jar as `org/quarkpress/admin/wp/license.txt`; it is not served. It opens with this
+License, version 2) travels in the jar as `org/quarkword/admin/wp/license.txt`; it is not served. It opens with this
 notice:
 
 ```
@@ -51,7 +51,7 @@ and
 ## Vendor files redistributed with WordPress
 
 WordPress ships these files of other projects among the ones the jar carries (paths below the jar's
-`org/quarkpress/admin/wp/`, served under each site's path). Several of them reach the jar without their licence
+`org/quarkword/admin/wp/`, served under each site's path). Several of them reach the jar without their licence
 header, which WordPress's build strips; their notices are reproduced here.
 
 | File(s) | Project | Licence | Copyright | Header in the file |
@@ -104,7 +104,7 @@ SOFTWARE.
 
 The Classic block edits with TinyMCE 4.9.11, which WordPress ships under the GNU Lesser General Public License,
 version 2.1. Its licence text, `wp-includes/js/tinymce/license.txt` from the WordPress zip, travels in the jar beside
-the TinyMCE files as `org/quarkpress/admin/wp/wp-includes/js/tinymce/license.txt` and is served at
+the TinyMCE files as `org/quarkword/admin/wp/wp-includes/js/tinymce/license.txt` and is served at
 `<site>/wp-includes/js/tinymce/license.txt`. The TinyMCE files are copied unchanged from the WordPress release, which
 ships them minified. The source of TinyMCE 4.9.11 is available from https://github.com/tinymce/tinymce (tag `4.9.11`)
 and in WordPress's development repository (https://github.com/WordPress/wordpress-develop).
@@ -113,7 +113,7 @@ and in WordPress's development repository (https://github.com/WordPress/wordpres
 
 | File | Project | Licence | Notice |
 | --- | --- | --- | --- |
-| `org/quarkpress/admin/vendor/oidc-client-ts.js` (served as `<site>/wp-admin/quarkpress-admin/vendor/oidc-client-ts.js`) | [oidc-client-ts](https://github.com/authts/oidc-client-ts) 3.5.0, its browser bundle (`package/dist/browser/oidc-client-ts.js` of the npm tarball), unchanged | Apache-2.0 | The package's `LICENSE` travels beside it as `org/quarkpress/admin/vendor/oidc-client-ts.LICENSE`, served as text at `<site>/wp-admin/quarkpress-admin/vendor/oidc-client-ts.LICENSE`; the package has no `NOTICE` file. |
+| `org/quarkword/admin/vendor/oidc-client-ts.js` (served as `<site>/wp-admin/quarkword-admin/vendor/oidc-client-ts.js`) | [oidc-client-ts](https://github.com/authts/oidc-client-ts) 3.5.0, its browser bundle (`package/dist/browser/oidc-client-ts.js` of the npm tarball), unchanged | Apache-2.0 | The package's `LICENSE` travels beside it as `org/quarkword/admin/vendor/oidc-client-ts.LICENSE`, served as text at `<site>/wp-admin/quarkword-admin/vendor/oidc-client-ts.LICENSE`; the package has no `NOTICE` file. |
 | the same file | [jwt-decode](https://github.com/auth0/jwt-decode) 4 (`^4.0.0` in oidc-client-ts's `package.json`), bundled in the oidc-client-ts browser bundle | MIT | `Copyright (c) 2015 Auth0, Inc. <support@auth0.com> (http://auth0.com)`, under the MIT permission notice above; the bundle carries no notice. |
 
 The Apache License 2.0 is compatible with version 3 of the GNU General Public License only, not with version 2.
@@ -123,10 +123,10 @@ Public License, version 3 or later, which this repository's "version 2 or later"
 ## WordPress output copied as data
 
 Some of what WordPress 7.1.3 prints into its editor page is reproduced as data, as a browser receives it, so that the
-editor finds the same globals: in `runtime/src/main/resources/org/quarkpress/admin/wordpress-handles.json`, the four
+editor finds the same globals: in `runtime/src/main/resources/org/quarkword/admin/wordpress-handles.json`, the four
 inline scripts around the classic editor and TinyMCE (the `editor` and `wp-editor` scripts' after scripts, the
 `getDefaultSettings`/`tinyMCEPreInit` script before the TinyMCE tags and TinyMCE's translation script after them),
 with the page's absolute URLs replaced by the shell's TinyMCE base, and the classic editor's settings
-(`wpEditorL10n`); in `runtime/src/main/resources/org/quarkpress/admin/shell/l10n/en-us.js`, the English date and
+(`wpEditorL10n`); in `runtime/src/main/resources/org/quarkword/admin/shell/l10n/en-us.js`, the English date and
 moment locale texts of WordPress's `wp.date` and `moment` settings scripts. They are WordPress's output, under
 WordPress's licence above.

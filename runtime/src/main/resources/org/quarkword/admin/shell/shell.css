@@ -1,0 +1,245 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* The admin shell's own small stylesheet (no WordPress CSS): a readable column, visible focus, plain tables. */
+
+.qw-admin {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell,
+    "Helvetica Neue", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1e1e1e;
+  background: #f0f0f1;
+}
+
+.qw-admin #quarkword-admin {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+.screen-reader-text {
+  border: 0;
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  word-wrap: normal !important;
+}
+
+.qw-skip:focus {
+  clip-path: none;
+  height: auto;
+  width: auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  z-index: 100;
+}
+
+.qw-admin a,
+.qw-admin .button-link {
+  color: #2271b1;
+}
+
+.qw-admin :focus-visible {
+  outline: 2px solid #2271b1;
+  outline-offset: 2px;
+}
+
+.qw-admin header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #c3c4c7;
+}
+
+.qw-admin header ul,
+.qw-admin .subsubsub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qw-admin .subsubsub {
+  margin: 0.5rem 0;
+}
+
+.qw-admin .subsubsub .current {
+  font-weight: 600;
+  color: #1e1e1e;
+}
+
+.qw-admin .count {
+  color: #50575e;
+}
+
+.qw-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.qw-title h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.page-title-action,
+.button {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #2271b1;
+  border-radius: 3px;
+  background: #fff;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.button-primary {
+  background: #2271b1;
+  color: #fff;
+}
+
+.button-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.qw-delete {
+  color: #b32d2e !important;
+}
+
+.wp-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+}
+
+.wp-list-table th,
+.wp-list-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #f0f0f1;
+}
+
+.wp-list-table img {
+  vertical-align: middle;
+  max-height: 60px;
+  object-fit: cover;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.tablenav-pages {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+#qw-notices {
+  margin-top: 1rem;
+}
+
+.qw-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.5rem 0;
+  padding: 0 0.75rem;
+  background: #fff;
+  border-left: 4px solid #00a32a;
+}
+
+.qw-notice-error {
+  border-left-color: #d63638;
+}
+
+.qw-notice-dismiss {
+  border: 0;
+  background: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.qw-error {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  border-left: 4px solid #d63638;
+}
+
+/* Over everything, the editor included: only its button leads on. */
+.qw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.qw-overlay-box {
+  max-width: 28rem;
+  padding: 1.5rem;
+  background: #fff;
+  color: #1e1e1e;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.qw-lock-box {
+  text-align: start;
+}
+
+.qw-lock-box h1 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.qw-lock-avatar {
+  float: inline-start;
+  margin: 0 1rem 0.5rem 0;
+  border-radius: 50%;
+}
+
+.qw-lock-actions {
+  display: flex;
+  clear: both;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.qw-signin {
+  max-width: 20rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  text-align: center;
+}

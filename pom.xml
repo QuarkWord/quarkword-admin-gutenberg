@@ -2,14 +2,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.quarkpress</groupId>
-  <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+  <groupId>org.quarkword</groupId>
+  <artifactId>quarkword-admin-gutenberg-parent</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <name>QuarkPress Admin Gutenberg :: Parent</name>
-  <description>The QuarkPress admin shell and WordPress's block editor</description>
-  <url>https://quarkpress.org</url>
+  <name>QuarkWord Admin Gutenberg :: Parent</name>
+  <description>The QuarkWord admin shell and WordPress's block editor</description>
+  <url>https://quarkword.org</url>
   <inceptionYear>2026</inceptionYear>
 
   <licenses>
@@ -27,9 +27,9 @@
   </modules>
 
   <scm>
-    <connection>scm:git:https://github.com/QuarkPress/quarkpress-admin-gutenberg.git</connection>
-    <developerConnection>scm:git:git@github.com:QuarkPress/quarkpress-admin-gutenberg.git</developerConnection>
-    <url>https://github.com/QuarkPress/quarkpress-admin-gutenberg</url>
+    <connection>scm:git:https://github.com/QuarkWord/quarkword-admin-gutenberg.git</connection>
+    <developerConnection>scm:git:git@github.com:QuarkWord/quarkword-admin-gutenberg.git</developerConnection>
+    <url>https://github.com/QuarkWord/quarkword-admin-gutenberg</url>
   </scm>
 
   <properties>
@@ -37,14 +37,14 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <!-- Platform, the same as the QuarkPress modules this extension builds on. -->
+    <!-- Platform, the same as the QuarkWord modules this extension builds on. -->
     <quarkus.platform.version>3.40.1</quarkus.platform.version>
     <quarkus.version>${quarkus.platform.version}</quarkus.version>
 
-    <!-- QuarkPress is not on Maven Central yet: CI checks the repository out at this commit and installs it first;
-         locally, install the QuarkPress modules at this commit before building (see CONTRIBUTING.md). -->
-    <quarkpress.version>0.1.0-SNAPSHOT</quarkpress.version>
-    <quarkpress.commit>6aae24b5192e12cdecfd38bf48e90f1b37510c6f</quarkpress.commit>
+    <!-- QuarkWord is not on Maven Central yet: CI checks the repository out at this commit and installs it first;
+         locally, install the QuarkWord modules at this commit before building (see CONTRIBUTING.md). -->
+    <quarkword.version>0.1.0-SNAPSHOT</quarkword.version>
+    <quarkword.commit>1bf3a5f2474c56bdb3092efd7512fc7d352c678a</quarkword.commit>
 
     <!-- The WordPress release whose built block-editor packages the runtime jar carries, and its SHA-256. -->
     <wordpress.version>7.1.3</wordpress.version>
@@ -102,9 +102,9 @@
         <scope>import</scope>
       </dependency>
       <dependency>
-        <groupId>org.quarkpress</groupId>
-        <artifactId>quarkpress-bom</artifactId>
-        <version>${quarkpress.version}</version>
+        <groupId>org.quarkword</groupId>
+        <artifactId>quarkword-bom</artifactId>
+        <version>${quarkword.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -138,10 +138,10 @@
               <maven.home>${maven.home}</maven.home>
             </systemPropertyVariables>
             <!-- The test database reaches the tests as an environment variable, not a system property: the
-                 QuarkPress configuration roots own the quarkpress.* keys and reject unknown ones from system
+                 QuarkWord configuration roots own the quarkword.* keys and reject unknown ones from system
                  properties, while environment variables are only matched against known keys. -->
             <environmentVariables>
-              <QUARKPRESS_TEST_DB>${testDb}</QUARKPRESS_TEST_DB>
+              <QUARKWORD_TEST_DB>${testDb}</QUARKWORD_TEST_DB>
             </environmentVariables>
           </configuration>
         </plugin>

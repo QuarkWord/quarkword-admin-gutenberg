@@ -3,18 +3,18 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.quarkpress</groupId>
-    <artifactId>quarkpress-admin-gutenberg-parent</artifactId>
+    <groupId>org.quarkword</groupId>
+    <artifactId>quarkword-admin-gutenberg-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>quarkpress-admin-gutenberg-integration-tests</artifactId>
+  <artifactId>quarkword-admin-gutenberg-integration-tests</artifactId>
 
-  <name>QuarkPress Admin Gutenberg :: Integration tests</name>
+  <name>QuarkWord Admin Gutenberg :: Integration tests</name>
   <description>A network application with every M2 module, Keycloak and the admin extension, whose admin screens are driven in a real browser (Playwright, Chromium headless) in JVM mode, and as a native executable in CI. Never published.</description>
 
   <properties>
-    <automatic.module.name>org.quarkpress.it.admin</automatic.module.name>
+    <automatic.module.name>org.quarkword.it.admin</automatic.module.name>
     <maven.deploy.skip>true</maven.deploy.skip>
     <skipUnitTests>false</skipUnitTests>
     <!-- Quarkus adds its own JVM flags to @{argLine}; empty when nothing sets it. -->
@@ -25,58 +25,58 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-rest-wp-v2</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-rest-wp-v2</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-multisite</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-multisite</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-security</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-security</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-posts</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-posts</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-taxonomy</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-taxonomy</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-revisions</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-revisions</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-scheduling</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-scheduling</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media-storage-fs</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media-storage-fs</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media-image-imageio</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media-image-imageio</artifactId>
+      <version>${quarkword.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-admin-gutenberg</artifactId>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-admin-gutenberg</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -119,9 +119,9 @@
     </dependency>
     <!-- Make the reactor (or the local repository) provide the deployment modules before this application. -->
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-core-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-core-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -132,9 +132,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-persistence-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-persistence-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -145,9 +145,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-rest-wp-v2-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-rest-wp-v2-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -158,9 +158,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-multisite-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-multisite-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -171,9 +171,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-security-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-security-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -184,9 +184,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-posts-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-posts-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -197,9 +197,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-taxonomy-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-taxonomy-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -210,9 +210,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-revisions-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-revisions-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -223,9 +223,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-scheduling-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-scheduling-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -236,9 +236,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -249,9 +249,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media-storage-fs-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media-storage-fs-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -262,9 +262,9 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-media-image-imageio-deployment</artifactId>
-      <version>${quarkpress.version}</version>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-media-image-imageio-deployment</artifactId>
+      <version>${quarkword.version}</version>
       <type>pom</type>
       <scope>test</scope>
       <exclusions>
@@ -275,8 +275,8 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.quarkpress</groupId>
-      <artifactId>quarkpress-admin-gutenberg-deployment</artifactId>
+      <groupId>org.quarkword</groupId>
+      <artifactId>quarkword-admin-gutenberg-deployment</artifactId>
       <version>${project.version}</version>
       <type>pom</type>
       <scope>test</scope>
@@ -317,9 +317,9 @@
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
           <!-- The test database reaches tests and the application under test as an environment variable: a
-               quarkpress.* system property would be rejected by the QuarkPress configuration root. -->
+               quarkword.* system property would be rejected by the QuarkWord configuration root. -->
           <environmentVariables>
-            <QUARKPRESS_TEST_DB>${testDb}</QUARKPRESS_TEST_DB>
+            <QUARKWORD_TEST_DB>${testDb}</QUARKWORD_TEST_DB>
           </environmentVariables>
         </configuration>
       </plugin>
@@ -343,9 +343,9 @@
             <quarkus.test.arg-line>${it.app.argLine}</quarkus.test.arg-line>
           </systemPropertyVariables>
           <!-- The test database reaches tests and the application under test as an environment variable: a
-               quarkpress.* system property would be rejected by the QuarkPress configuration root. -->
+               quarkword.* system property would be rejected by the QuarkWord configuration root. -->
           <environmentVariables>
-            <QUARKPRESS_TEST_DB>${testDb}</QUARKPRESS_TEST_DB>
+            <QUARKWORD_TEST_DB>${testDb}</QUARKWORD_TEST_DB>
           </environmentVariables>
         </configuration>
       </plugin>

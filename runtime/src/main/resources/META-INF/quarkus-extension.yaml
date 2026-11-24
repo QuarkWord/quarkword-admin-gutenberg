@@ -1,9 +1,9 @@
 ---
-name: "QuarkPress Admin Gutenberg"
-description: "The QuarkPress admin shell and WordPress's block editor"
+name: "QuarkWord Admin Gutenberg"
+description: "The QuarkWord admin shell and WordPress's block editor"
 metadata:
   keywords:
-    - "quarkpress"
+    - "quarkword"
     - "cms"
     - "admin"
     - "gutenberg"
